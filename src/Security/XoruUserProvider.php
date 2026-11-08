@@ -17,7 +17,7 @@ final class XoruUserProvider implements UserProviderInterface
     public function loadUserByIdentifier(string $identifier): UserInterface
     {
         [$accountType, $login] = array_pad(explode(':', $identifier, 2), 2, '');
-        if ($accountType === 'customer') {
+        if (in_array($accountType, ['login', 'customer'], true)) {
             $row = $this->connection->fetchAssociative(
                 'SELECT id, name, email, password FROM customers WHERE email = ? LIMIT 1',
                 [$login]
@@ -25,7 +25,10 @@ final class XoruUserProvider implements UserProviderInterface
             if ($row && $row['password']) {
                 return new XoruUser((int) $row['id'], $identifier, $row['password'], $row['name'], ['ROLE_CUSTOMER']);
             }
-        } elseif ($accountType === 'admin') {
+
+        }
+
+        if (in_array($accountType, ['login', 'admin'], true)) {
             $row = $this->connection->fetchAssociative(
                 'SELECT id, username, password FROM admins WHERE username = ? LIMIT 1',
                 [$login]

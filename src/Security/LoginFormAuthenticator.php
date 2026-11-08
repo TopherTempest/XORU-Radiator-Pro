@@ -7,15 +7,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Core\Security;
-use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
-use Symfony\Component\Security\Http\Authenticator\Passport\PassportInterface;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 
 final class LoginFormAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
@@ -26,18 +22,16 @@ final class LoginFormAuthenticator extends AbstractAuthenticator implements Auth
 
     public function supports(Request $request): ?bool
     {
-        return $request->isMethod('POST') && in_array($request->getPathInfo(), ['/customer/login', '/admin/login'], true);
+        return $request->isMethod('POST') && $request->getPathInfo() === '/customer/login';
     }
 
     public function authenticate(Request $request): Passport
     {
-        $isAdmin = $request->getPathInfo() === '/admin/login';
-        $field = $isAdmin ? 'username' : 'email';
-        $login = trim($request->request->getString($field));
+        $login = trim($request->request->getString('login'));
         $password = $request->request->getString('password');
 
         return new Passport(
-            new UserBadge(($isAdmin ? 'admin:' : 'customer:').$login),
+            new UserBadge('login:'.$login),
             new PasswordCredentials($password),
             [new CsrfTokenBadge('authenticate', $request->request->getString('_token'))]
         );
@@ -63,14 +57,12 @@ final class LoginFormAuthenticator extends AbstractAuthenticator implements Auth
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): RedirectResponse
     {
-        $isAdmin = $request->getPathInfo() === '/admin/login';
-        $request->getSession()->getFlashBag()->add('error', 'Invalid '.($isAdmin ? 'admin username' : 'email').' or password.');
-        return new RedirectResponse($this->urlGenerator->generate($isAdmin ? 'admin_login' : 'customer_login'));
+        $request->getSession()->getFlashBag()->add('error', 'Invalid email/username or password.');
+        return new RedirectResponse($this->urlGenerator->generate('customer_login'));
     }
 
-    public function start(Request $request, AuthenticationException $authException = null): RedirectResponse
+    public function start(Request $request, ?AuthenticationException $authException = null): RedirectResponse
     {
-        $route = str_starts_with($request->getPathInfo(), '/admin') ? 'admin_login' : 'customer_login';
-        return new RedirectResponse($this->urlGenerator->generate($route));
+        return new RedirectResponse($this->urlGenerator->generate('customer_login'));
     }
 }

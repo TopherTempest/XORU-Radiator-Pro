@@ -9,7 +9,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Core\User\UserPasswordHasherInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
@@ -24,7 +24,7 @@ final class AuthController extends AbstractController
     #[Route('/admin/login', name: 'admin_login', methods: ['GET', 'POST'])]
     public function adminLogin(): Response
     {
-        return $this->render('auth/admin_login.html.twig', ['error' => $this->consumeErrorFlash()]);
+        return $this->redirectToRoute('customer_login');
     }
 
     #[Route('/customer/register', name: 'customer_register', methods: ['GET', 'POST'])]
