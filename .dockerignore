@@ -1,0 +1,11 @@
+vendor
+var/cache
+.git
+.gitignore
+.env
+.env.local
+node_modules
+.idea
+.vscode
+Dockerfile
+.dockerignore

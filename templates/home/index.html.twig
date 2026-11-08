@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XORU Radiator Pro</title>
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="#home" aria-label="XORU Radiator Pro">
+        <img src="{{ asset('assets/x-logo.png') }}" class="brand-x" alt="">
+        <span class="brand-name">XORU</span>
+        <span class="brand-sub">RADIATOR PRO</span>
+    </a>
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav" id="nav">
+        <a href="#about">About Us</a><a href="#services">Services</a><a href="#testimonials">Testimonials</a><a href="#booking">Book Service</a>
+        {% if isCustomerLoggedIn %}<a href="{{ path('customer_dashboard') }}">My Account</a>{% endif %}
+    </nav>
+</header>
+<main>
+    <section class="hero" id="home">
+        <div class="hero-copy">
+            <h1>Keep Your<br>Engine Cool &amp;<br>Running Strong</h1>
+            <p>Professional radiator repair, flushing, and replacement services. We diagnose overheating issues fast to keep your vehicle safe on the road.</p>
+            <div class="actions">
+                <button type="button" class="btn primary" data-modal="{{ isCustomerLoggedIn ? 'bookingModal' : 'customerAuthModal' }}">Book a Repair</button>
+                <button type="button" class="btn outline" data-modal="{{ isCustomerLoggedIn ? 'estimateModal' : 'customerAuthModal' }}">Get an Estimate</button>
+            </div>
+        </div>
+        <div class="hero-art"><img src="{{ asset('assets/radiator.png') }}" alt="Automotive radiator"></div>
+    </section>
+    <section class="featured wrap">
+        <p class="eyebrow white">FEATURED ON</p>
+        <div class="logos"><img src="{{ asset('assets/tesla.png') }}" alt="Tesla"><img src="{{ asset('assets/toyota.png') }}" alt="Toyota"><img src="{{ asset('assets/honda.png') }}" alt="Honda"></div>
+    </section>
+    <section class="split wrap" id="about">
+        <div class="photo-stack"><img src="{{ asset('assets/diagnostic.jpeg') }}" alt="Technician diagnosing a vehicle radiator"><img src="{{ asset('assets/diagnostic.jpeg') }}" alt="Radiator diagnostic equipment"></div>
+        <div class="copy"><p class="eyebrow">DIAGNOSTICS &amp; FLUSHING</p><h2>Comprehensive<br>Cooling System<br>Care</h2><p>From leak detection to full radiator core replacements, our certified technicians use advanced diagnostic tools to prevent engine damage before it starts.</p><a href="#services" class="small-btn">Explore Services</a></div>
+    </section>
+    <section class="split reverse wrap" id="services">
+        <div class="copy"><p class="eyebrow">FAST TURNAROUND</p><h2>Expert Repairs<br>Without the Wait</h2><p>Overheating issue? We offer quick turnarounds, honest pricing, and high-performance replacement parts for all vehicle makes and models.</p><a href="#booking" class="small-btn">Contact Technician</a></div>
+        <div class="team-art"><img src="{{ asset('assets/team.png') }}" alt="XORU radiator technicians"></div>
+    </section>
+    <section class="testimonials wrap" id="testimonials">
+        <div class="section-title"><p class="eyebrow">TESTIMONIALS</p><h2>What Our Customers Say</h2></div>
+        <div class="cards">
+            <article class="card"><img src="{{ asset('assets/testimonial1.jpg') }}" alt="Manuelito Zerna"><h3>MANUELITO ZERNA</h3><p>“Fixed my radiator leak in less than two hours. Fair pricing and friendly service!” — Manuelito Z.</p></article>
+            <article class="card"><img src="{{ asset('assets/testimonial2.jpg') }}" alt="Altobar Badang"><h3>ALTOBAR BADANG</h3><p>“XORU saved my engine from severe overheating. Highly recommend their diagnostic service.” — Altobar B.</p></article>
+            <article class="card"><img src="{{ asset('assets/testimonial3.jpg') }}" alt="Professor Rogen"><h3>PROFESSOR ROGEN</h3><p>“Honest, reliable, and expert advice. The best radiator repair shop in town.” — Professor R.</p></article>
+        </div>
+    </section>
+    <section class="peace wrap" id="booking">
+        <img src="{{ asset('assets/peace-bg.jpeg') }}" alt="Radiator technician working" class="peace-bg"><div class="overlay"></div>
+        <div class="peace-content"><p class="eyebrow blue">PEACE OF MIND, GUARANTEED</p><h2>Drive with confidence, not worry</h2>
+            <div class="guarantees"><div><span class="icon"><img src="{{ asset('assets/same-day.png') }}" alt=""></span><h3>Same-day fixes</h3><p>Most issues resolved before you'd normally finish work</p></div><div><span class="icon"><img src="{{ asset('assets/no-fees.png') }}" alt=""></span><h3>No surprise fees</h3><p>You approve the price before we touch anything</p></div><div><span class="icon"><img src="{{ asset('assets/warranty.png') }}" alt=""></span><h3>12-month warranty</h3><p>Every repair backed for a full year, no questions</p></div></div>
+            <button type="button" class="btn outline light" data-modal="{{ isCustomerLoggedIn ? 'bookingModal' : 'customerAuthModal' }}">Get my free diagnostic</button>
+        </div>
+    </section>
+</main>
+<footer class="footer wrap">
+    <div class="footer-brand"><span>XORU</span><span>RADIATOR</span><span>PRO</span><small>About Us<br>Services<br>Pricing<br>FAQs</small></div>
+    <div><h3>Services</h3><a href="#services">Radiator Repair</a><a href="#services">Coolant Flush</a><a href="#services">Leak Detection</a><a href="#services">Core Replacement</a></div>
+    <div><h3>Contact Us</h3><a href="mailto:tophertempest@gmail.com">Email</a><a href="tel:09265435245">Phone</a><a href="https://www.instagram.com/topheriotic/" target="_blank" rel="noopener noreferrer">Instagram</a><a href="#">Location</a></div>
+    <div class="subscribe"><h3>Subscribe for Maintenance Tips</h3><form id="subscribeForm" action="{{ path('subscribe') }}" method="post"><input type="email" name="email" placeholder="Email Address" required><input type="hidden" name="_token" value="{{ csrf_token('subscribe') }}"><button type="submit">SUBMIT</button></form><p class="form-message" id="subscribeMessage">{{ subscribeMessage }}</p></div>
+</footer>
+<div class="modal" id="estimateModal" aria-hidden="true"><div class="modal-box"><button class="close" aria-label="Close">×</button><h2>Get an Estimate</h2><p>Tell us what your vehicle needs.</p>
+    <form action="{{ path('booking_submit') }}" method="post"><input type="hidden" name="form_type" value="estimate"><input name="name" placeholder="Full Name" required><input name="phone" placeholder="Phone Number" required><input name="vehicle" placeholder="Vehicle / Model" required><select name="service_id" required><option value="">Select Service</option>{% for service in services %}<option value="{{ service.id }}">{{ service.service_name }}</option>{% endfor %}</select><input type="hidden" name="_token" value="{{ csrf_token('booking') }}"><textarea name="message" placeholder="Describe the problem" required></textarea><button class="btn primary" type="submit">Request Estimate</button></form>
+</div></div>
+<div class="modal" id="bookingModal" aria-hidden="true"><div class="modal-box"><button class="close" aria-label="Close">×</button><h2>Book a Repair</h2><p>Request your free diagnostic.</p>
+    <form action="{{ path('booking_submit') }}" method="post"><input type="hidden" name="form_type" value="booking"><input name="name" placeholder="Full Name" required><input name="phone" placeholder="Phone Number" required><input name="vehicle" placeholder="Vehicle / Model" required><select name="service_id" required><option value="">Select Service</option>{% for service in services %}<option value="{{ service.id }}">{{ service.service_name }}</option>{% endfor %}</select><select name="availability_id" id="availabilitySelect" required><option value="">Select Available Date &amp; Time</option>{% for slot in availableSlots %}<option value="{{ slot.id }}" data-date="{{ slot.available_date }}" data-time="{{ slot.available_time|slice(0, 5) }}">{{ slot.available_date|date('M d, Y') }} - {{ slot.available_time|date('h:i A') }}</option>{% endfor %}</select><input type="hidden" name="date" id="bookingDate"><input type="hidden" name="time" id="bookingTime"><input type="hidden" name="_token" value="{{ csrf_token('booking') }}"><textarea name="message" placeholder="What seems to be wrong?" required></textarea><button class="btn primary" type="submit">Book Diagnostic</button></form>
+</div></div>
+<div class="modal" id="customerAuthModal" aria-hidden="true"><div class="modal-box auth-choice-box"><button type="button" class="close" aria-label="Close">×</button><div class="auth-brand-mark"><img src="{{ asset('assets/xoru-blue.png') }}" alt="XORU Logo"></div><h2>Sign in to continue</h2><p>Log in or create a free XORU customer account to book a repair, request an estimate, and track your requests.</p><div class="auth-choice-actions"><a class="btn primary" href="{{ path('customer_login') }}">Login to My Account</a><a class="btn outline" href="{{ path('customer_register') }}">Create Free Account</a></div><div class="auth-divider"><span>or</span></div><div class="auth-social-actions"><a class="btn outline" href="{{ path('customer_login') }}">Continue with Google</a><a class="btn outline" href="{{ path('customer_login') }}">Continue with Facebook</a></div></div></div>
+<script>
+const availabilitySelect = document.getElementById('availabilitySelect');
+if (availabilitySelect) availabilitySelect.addEventListener('change', function () { const option = this.options[this.selectedIndex]; document.getElementById('bookingDate').value = option.dataset.date || ''; document.getElementById('bookingTime').value = option.dataset.time || ''; });
+</script>
+<script src="{{ asset('script.js') }}"></script>
+</body>
+</html>
