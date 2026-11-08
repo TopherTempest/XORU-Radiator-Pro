@@ -1,1 +1,24 @@
-{% extends 'admin/_layout.html.twig' %}{% block title %}Create Admin - XORU{% endblock %}{% block heading %}Create Admin{% endblock %}{% block content %}<div class="admin-settings-header"><h1>Create Admin Account</h1><p>Add an administrator login.</p></div>{% if error %}<div class="admin-login-error">{{ error }}</div>{% endif %}<section class="admin-card" style="max-width:560px"><form method="post" style="display:grid;gap:12px"><input type="hidden" name="_token" value="{{ csrf_token('create_admin') }}"><label for="username">Username</label><input id="username" name="username" minlength="3" maxlength="50" required><label for="password">Password</label><input id="password" type="password" name="password" minlength="8" required><label for="confirm_password">Confirm Password</label><input id="confirm_password" type="password" name="confirm_password" minlength="8" required><button class="admin-btn primary" type="submit">Create Admin</button></form></section>{% endblock %}
+{% extends 'admin/_layout.html.twig' %}
+{% block title %}Create Admin - XORU{% endblock %}
+{% block heading %}Create Admin{% endblock %}
+{% block content %}
+<div class="admin-create-page">
+    <div class="admin-settings-header">
+        <h1>Create Admin Account</h1>
+        <p>Add an administrator login.</p>
+    </div>
+    {% if error %}<div class="admin-login-error">{{ error }}</div>{% endif %}
+    <section class="admin-card admin-create-card">
+        <form method="post" class="admin-create-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('create_admin') }}">
+            <label for="username">Username</label>
+            <input id="username" name="username" minlength="3" maxlength="50" autocomplete="username" required>
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" minlength="8" autocomplete="new-password" required>
+            <label for="confirm_password">Confirm Password</label>
+            <input id="confirm_password" type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+            <button class="admin-btn primary" type="submit">Create Admin</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

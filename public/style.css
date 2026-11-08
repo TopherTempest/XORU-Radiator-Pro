@@ -1033,6 +1033,12 @@ textarea {
     padding:28px 18px;
     display:flex;
     flex-direction:column;
+    position:sticky;
+    top:0;
+    height:100vh;
+    box-sizing:border-box;
+    overflow-y:auto;
+    align-self:start;
 }
 
 .admin-logo {
@@ -2476,4 +2482,179 @@ html.admin-dark .admin-alert {
     padding: 10px 8px;
     white-space: normal;
     word-break: break-word;
+}
+
+.admin-dashboard {
+    display: grid;
+    gap: 20px;
+}
+
+.admin-dashboard .admin-settings-header,
+.admin-dashboard .admin-metrics {
+    margin-bottom: 0;
+}
+
+.admin-dashboard .admin-metric {
+    min-height: 116px;
+    padding: 24px;
+}
+
+.admin-dashboard .admin-card-header {
+    padding: 20px 24px;
+}
+
+.admin-settings-page {
+    display: grid;
+    gap: 20px;
+}
+
+.admin-settings-page .admin-settings-header {
+    margin-bottom: 0;
+}
+
+.admin-settings-content {
+    padding: 24px;
+}
+
+.admin-settings-content h2 {
+    margin: 0 0 16px;
+}
+
+.admin-settings-content p {
+    margin: 14px 0 0;
+}
+
+.admin-settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-settings-content > .admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.admin-create-page {
+    display: grid;
+    gap: 20px;
+    max-width: 720px;
+}
+
+.admin-create-page .admin-settings-header {
+    margin-bottom: 0;
+}
+
+.admin-create-card {
+    padding: 28px;
+}
+
+.admin-create-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+}
+
+.admin-create-form label {
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.admin-create-form input {
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cfd6df;
+    border-radius: 6px;
+    background: #fff;
+    color: #1c2737;
+    font: inherit;
+}
+
+.admin-create-form input:focus {
+    outline: 3px solid rgba(18, 101, 189, .16);
+    border-color: #1265bd;
+}
+
+.admin-create-form button {
+    justify-self: start;
+    min-height: 44px;
+    min-width: 150px;
+    margin-top: 8px;
+}
+
+html.admin-dark .admin-create-form input {
+    background: #1b2733;
+    border-color: #3a4755;
+    color: #f5f7fa;
+}
+
+.admin-dashboard #bookings .admin-table th,
+.admin-dashboard #bookings .admin-table td {
+    padding: 14px 12px;
+}
+
+.admin-dashboard #bookings .admin-booking-status-form,
+.admin-dashboard #bookings .admin-booking-reschedule-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+    margin: 0 0 10px;
+}
+
+.admin-dashboard #bookings .admin-booking-status-form select,
+.admin-dashboard #bookings .admin-booking-reschedule-form select,
+.admin-dashboard #bookings .admin-booking-status-form button,
+.admin-dashboard #bookings .admin-booking-reschedule-form button {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.admin-dashboard #bookings .admin-booking-status-form select,
+.admin-dashboard #bookings .admin-booking-reschedule-form select {
+    padding: 8px 10px;
+    border: 1px solid #cfd6df;
+    border-radius: 6px;
+    background: #fff;
+    color: #1c2737;
+}
+
+.admin-dashboard #bookings .admin-booking-status-form button,
+.admin-dashboard #bookings .admin-booking-reschedule-form button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-dashboard #slots > .admin-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+}
+
+@media (max-width: 600px) {
+    .admin-settings-content {
+        padding: 18px;
+    }
+
+    .admin-create-card {
+        padding: 18px;
+    }
+
+    .admin-dashboard #slots > .admin-form {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+
+    .admin-dashboard .admin-card-header {
+        padding: 16px;
+    }
 }

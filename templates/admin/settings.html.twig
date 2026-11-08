@@ -1,1 +1,30 @@
-{% extends 'admin/_layout.html.twig' %}{% block title %}XORU Admin Settings{% endblock %}{% block heading %}Settings{% endblock %}{% block content %}<div class="admin-settings-header"><h1>Settings</h1><p>Manage administrator preferences and accounts.</p></div><section class="admin-card"><h2>Appearance</h2><button class="admin-btn outline" type="button" onclick="setAdminTheme('light')">Light mode</button> <button class="admin-btn outline" type="button" onclick="setAdminTheme('dark')">Dark mode</button><p>Current administrator: <strong>{{ app.user.displayName }}</strong></p></section><section class="admin-card"><h2>Administrator Accounts</h2><p>Create an administrator login for another staff member.</p><a class="admin-btn primary" href="{{ path('admin_create') }}">Create Admin</a></section><script>function setAdminTheme(theme){document.documentElement.classList.toggle('admin-dark',theme==='dark');localStorage.setItem('xoruAdminTheme',theme);}</script>{% endblock %}
+{% extends 'admin/_layout.html.twig' %}
+{% block title %}XORU Admin Settings{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block content %}
+<div class="admin-settings-page">
+    <div class="admin-settings-header">
+        <h1>Settings</h1>
+        <p>Manage administrator preferences and accounts.</p>
+    </div>
+    <section class="admin-card admin-settings-content">
+        <h2>Appearance</h2>
+        <div class="admin-settings-actions">
+            <button class="admin-btn outline" type="button" onclick="setAdminTheme('light')">Light mode</button>
+            <button class="admin-btn outline" type="button" onclick="setAdminTheme('dark')">Dark mode</button>
+        </div>
+        <p>Current administrator: <strong>{{ app.user.displayName }}</strong></p>
+    </section>
+    <section class="admin-card admin-settings-content">
+        <h2>Administrator Accounts</h2>
+        <p>Create an administrator login for another staff member.</p>
+        <a class="admin-btn primary" href="{{ path('admin_create') }}">Create Admin</a>
+    </section>
+</div>
+<script>
+    function setAdminTheme(theme) {
+        document.documentElement.classList.toggle('admin-dark', theme === 'dark');
+        localStorage.setItem('xoruAdminTheme', theme);
+    }
+</script>
+{% endblock %}
