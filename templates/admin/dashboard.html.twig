@@ -11,9 +11,9 @@
         </div>
 
         <div class="admin-metrics">
-            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.monthBookings }}</strong><span>Bookings this month</span></div></div>
-            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.pending }}</strong><span>Pending</span></div></div>
-            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.approved }}</strong><span>Approved</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.monthBookings }}</strong><span>Requests this month</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.pending }}</strong><span>Active pending</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.approved }}</strong><span>Active approved</span></div></div>
             <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.customers }}</strong><span>Customers</span></div></div>
         </div>
 
@@ -33,11 +33,33 @@
                                 <tr>
                                     <td>{{ booking.customer_name }}<br><small>{{ booking.customer_email }}</small></td>
                                     <td>{{ booking.form_type|capitalize }}</td>
-                                    <td>{{ booking.service_name }}<br>{{ booking.vehicle }}</td>
+                                    <td>{{ booking.service_name }}<br>{{ booking.vehicle }}<br><small>Customer request: {{ booking.message }}</small></td>
                                     <td>{% if booking.date %}{{ booking.date|date('M d, Y') }} {{ booking.time|date('h:i A') }}{% else %}Estimate{% endif %}</td>
-                                    <td>{{ booking.status }}<br><small>{{ booking.admin_note }}</small></td>
+                                    <td>{{ booking.status }}{% if booking.admin_note %}<br><small>Response: {{ booking.admin_note }}</small>{% endif %}</td>
                                     <td class="admin-booking-actions">
-                                        {% if booking.form_type == 'booking' %}
+                                        {% if booking.form_type == 'estimate' %}
+                                            <form action="{{ path('admin_action') }}" method="post" class="admin-booking-status-form">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                                <input type="hidden" name="action" value="status">
+                                                <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                                <select name="status" required>
+                                                    <option value="" disabled {{ booking.status == 'Pending' ? 'selected' }}>Update customer status...</option>
+                                                    <option value="Approved" {{ booking.status == 'Approved' ? 'selected' }}>Approved</option>
+                                                    <option value="Declined" {{ booking.status == 'Declined' ? 'selected' }}>Declined</option>
+                                                    <option value="Completed" {{ booking.status == 'Completed' ? 'selected' }}>Completed</option>
+                                                    <option value="Cancelled" {{ booking.status == 'Cancelled' ? 'selected' }}>Cancelled</option>
+                                                </select>
+                                                <button class="admin-btn primary" type="submit">Update customer</button>
+                                            </form>
+                                            <form action="{{ path('admin_action') }}" method="post" class="admin-form admin-estimate-response-form">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                                <input type="hidden" name="action" value="estimate_response">
+                                                <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                                <label for="estimate-response-{{ booking.id }}">Response / comment for customer</label>
+                                                <textarea id="estimate-response-{{ booking.id }}" name="admin_response" rows="4" maxlength="5000" placeholder="Enter the estimate or a response for the customer" required>{{ booking.admin_note }}</textarea>
+                                                <button class="admin-btn primary" type="submit">{{ booking.admin_note ? 'Update response' : 'Send response' }}</button>
+                                            </form>
+                                        {% else %}
                                             <form action="{{ path('admin_action') }}" method="post" class="admin-booking-status-form">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
                                                 <input type="hidden" name="action" value="status">

@@ -1478,13 +1478,19 @@ textarea {
 }
 
 .admin-form input,
-.admin-form select {
+.admin-form select,
+.admin-form textarea {
     width:100%;
     padding:11px 12px;
     border:1px solid #d7dce4;
     border-radius:6px;
     background:#fff;
     color:#111827;
+    box-sizing:border-box;
+}
+
+.admin-form textarea {
+    resize:vertical;
 }
 
 .admin-form-row {
@@ -2394,7 +2400,8 @@ html.admin-dark .admin-action:hover {
 }
 
 html.admin-dark .admin-form input,
-html.admin-dark .admin-form select {
+html.admin-dark .admin-form select,
+html.admin-dark .admin-form textarea {
     background:#1b2733;
     border-color:#3a4755;
     color:#f5f7fa;

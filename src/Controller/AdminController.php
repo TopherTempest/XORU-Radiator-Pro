@@ -2,10 +2,18 @@
 
 namespace App\Controller;
 
+use App\Entity\Admin;
+use App\Entity\Availability;
+use App\Repository\AvailabilityRepository;
+use App\Repository\BookingRepository;
+use App\Repository\CustomerRepository;
+use App\Repository\ReportRepository;
+use App\Repository\SubscriberRepository;
 use App\Security\XoruUser;
 use App\Service\BookingTrashManager;
-use Doctrine\DBAL\Connection;
+use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Attribute\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,45 +27,45 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 final class AdminController extends AbstractController
 {
     #[Route('/admin', name: 'admin_dashboard', methods: ['GET'])]
-    public function dashboard(Connection $connection, Request $request): Response
-    {
-        $month = date('Y-m');
-        $bookings = $connection->fetchAllAssociative(
-            'SELECT b.*, s.service_name, c.name AS customer_name, c.email AS customer_email FROM bookings b JOIN services s ON s.id = b.service_id JOIN customers c ON c.id = b.customer_id WHERE b.deleted_at IS NULL ORDER BY b.created_at DESC'
-        );
-        $trashedBookings = $connection->fetchAllAssociative(
-            'SELECT b.*, s.service_name, c.name AS customer_name, c.email AS customer_email FROM bookings b JOIN services s ON s.id = b.service_id JOIN customers c ON c.id = b.customer_id WHERE b.deleted_at IS NOT NULL ORDER BY b.deleted_at DESC'
-        );
+    public function dashboard(
+        BookingRepository $bookings,
+        AvailabilityRepository $availability,
+        SubscriberRepository $subscribers,
+        CustomerRepository $customers,
+        Request $request,
+    ): Response {
+        $monthStart = new DateTimeImmutable(date('Y-m-01'));
+        $nextMonth = $monthStart->modify('first day of next month');
 
         return $this->render('admin/dashboard.html.twig', [
-            'bookings' => $bookings,
-            'trashedBookings' => $trashedBookings,
+            'bookings' => $bookings->findAdminRows(trashed: false),
+            'trashedBookings' => $bookings->findAdminRows(trashed: true),
             'bookingView' => $request->query->get('tab') === 'trash' ? 'trash' : 'active',
-            'slots' => $connection->fetchAllAssociative('SELECT id, available_date, available_time, status FROM availability WHERE available_date >= CURDATE() ORDER BY available_date, available_time'),
-            'freeSlots' => $connection->fetchAllAssociative("SELECT id, available_date, available_time FROM availability WHERE status = 'Available' AND available_date >= CURDATE() ORDER BY available_date, available_time"),
-            'subscribers' => $connection->fetchAllAssociative('SELECT id, email, created_at FROM subscribers ORDER BY created_at DESC'),
+            'slots' => $availability->findUpcomingRows(),
+            'freeSlots' => $availability->findUpcomingRows(availableOnly: true),
+            'subscribers' => $subscribers->findNewestRows(),
             'metrics' => [
-                'monthBookings' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ?", [$month.'%']),
-                'pending' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ? AND status = 'Pending'", [$month.'%']),
-                'approved' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ? AND status = 'Approved'", [$month.'%']),
-                'customers' => (int) $connection->fetchOne('SELECT COUNT(*) FROM customers'),
+                'monthBookings' => $bookings->countCreatedByDateRange($monthStart, $nextMonth),
+                'pending' => $bookings->countActiveByStatus('Pending'),
+                'approved' => $bookings->countActiveByStatus('Approved'),
+                'customers' => $customers->count([]),
             ],
         ]);
     }
 
     #[Route('/admin/customers', name: 'admin_customers', methods: ['GET'])]
-    public function customers(Connection $connection): Response
+    public function customers(BookingRepository $bookings): Response
     {
         return $this->render('admin/customers.html.twig', [
-            'customers' => $connection->fetchAllAssociative('SELECT c.id, c.name, c.email, c.provider, c.created_at, COUNT(b.id) AS booking_count FROM customers c LEFT JOIN bookings b ON b.customer_id = c.id AND b.deleted_at IS NULL GROUP BY c.id, c.name, c.email, c.provider, c.created_at ORDER BY c.created_at DESC'),
+            'customers' => $bookings->findCustomersWithBookingCounts(),
         ]);
     }
 
     #[Route('/admin/reports', name: 'admin_reports', methods: ['GET'])]
-    public function reports(Connection $connection): Response
+    public function reports(ReportRepository $reports): Response
     {
         return $this->render('admin/reports.html.twig', [
-            'reports' => $connection->fetchAllAssociative('SELECT r.*, c.name AS customer_name, c.email AS customer_email FROM reports r JOIN customers c ON c.id = r.customer_id ORDER BY r.created_at DESC'),
+            'reports' => $reports->findAdminRows(),
         ]);
     }
 
@@ -70,7 +78,7 @@ final class AdminController extends AbstractController
     #[Route('/admin/create-admin', name: 'admin_create', methods: ['GET', 'POST'])]
     public function createAdmin(
         Request $request,
-        Connection $connection,
+        EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         CsrfTokenManagerInterface $csrfTokens,
     ): Response {
@@ -92,10 +100,11 @@ final class AdminController extends AbstractController
             } else {
                 $user = new XoruUser(0, 'admin:'.$username, '', $username, ['ROLE_ADMIN']);
                 try {
-                    $connection->insert('admins', [
-                        'username' => $username,
-                        'password' => $passwordHasher->hashPassword($user, $password),
-                    ]);
+                    $entityManager->persist(new Admin(
+                        $username,
+                        $passwordHasher->hashPassword($user, $password),
+                    ));
+                    $entityManager->flush();
                     $this->addFlash('success', 'Administrator account created.');
                     return $this->redirectToRoute('admin_create');
                 } catch (UniqueConstraintViolationException) {
@@ -110,11 +119,12 @@ final class AdminController extends AbstractController
     #[Route('/admin/action', name: 'admin_action', methods: ['POST'])]
     public function action(
         Request $request,
-        Connection $connection,
+        EntityManagerInterface $entityManager,
+        BookingRepository $bookings,
+        AvailabilityRepository $availability,
         CsrfTokenManagerInterface $csrfTokens,
         BookingTrashManager $trashManager,
-    ): Response
-    {
+    ): Response {
         if (!$csrfTokens->isTokenValid(new CsrfToken('admin_action', $request->request->getString('_token')))) {
             throw $this->createAccessDeniedException('Invalid request token.');
         }
@@ -130,37 +140,55 @@ final class AdminController extends AbstractController
                 if (!in_array($status, ['Approved', 'Declined', 'Completed', 'Cancelled'], true)) {
                     throw new \RuntimeException('Invalid booking status.');
                 }
-                $connection->beginTransaction();
-                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$bookingId]);
-                if (!$booking) {
-                    throw new \RuntimeException('Booking not found.');
+
+                $entityManager->wrapInTransaction(function () use ($bookings, $availability, $bookingId, $status): void {
+                    $booking = $bookings->findLockedActive($bookingId);
+                    if ($booking === null) {
+                        throw new \RuntimeException('Booking not found.');
+                    }
+
+                    $booking->setStatus($status);
+                    $bookingSlot = $booking->getAvailability();
+                    if ($bookingSlot !== null && $bookingSlot->getId() !== null) {
+                        $slot = $availability->findLocked($bookingSlot->getId());
+                        if ($slot !== null) {
+                            $slot->setStatus(in_array($status, ['Declined', 'Cancelled'], true) ? 'Available' : 'Booked');
+                        }
+                    }
+                });
+                $this->addFlash('success', 'Request status updated. The customer can see the change in their dashboard.');
+            } elseif ($action === 'estimate_response' && $bookingId && $bookingId > 0) {
+                $response = trim($request->request->getString('admin_response'));
+                if ($response === '' || strlen($response) > 5000) {
+                    throw new \RuntimeException('Enter a response of no more than 5,000 characters.');
                 }
-                $connection->update('bookings', ['status' => $status], ['id' => $bookingId]);
-                if ($booking['availability_id']) {
-                    $slotStatus = in_array($status, ['Declined', 'Cancelled'], true) ? 'Available' : 'Booked';
-                    $connection->update('availability', ['status' => $slotStatus], ['id' => $booking['availability_id']]);
-                }
-                $connection->commit();
-                $this->addFlash('success', 'Booking status updated.');
+
+                $entityManager->wrapInTransaction(function () use ($bookings, $bookingId, $response): void {
+                    $booking = $bookings->findLockedActive($bookingId);
+                    if ($booking === null || $booking->getFormType() !== 'estimate') {
+                        throw new \RuntimeException('Estimate request not found.');
+                    }
+
+                    $booking->setEstimateResponse($response);
+                });
+                $this->addFlash('success', 'Estimate response saved and shared with the customer.');
             } elseif ($action === 'reschedule' && $bookingId && $bookingId > 0 && $slotId && $slotId > 0) {
-                $connection->beginTransaction();
-                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$bookingId]);
-                $slot = $connection->fetchAssociative("SELECT id, available_date, available_time FROM availability WHERE id = ? AND status = 'Available' FOR UPDATE", [$slotId]);
-                if (!$booking || !$slot) {
-                    throw new \RuntimeException('Booking or new schedule was not available.');
-                }
-                if ($booking['availability_id']) {
-                    $connection->update('availability', ['status' => 'Available'], ['id' => $booking['availability_id']]);
-                }
-                $connection->update('availability', ['status' => 'Booked'], ['id' => $slotId]);
-                $connection->update('bookings', [
-                    'availability_id' => $slotId,
-                    'date' => $slot['available_date'],
-                    'time' => $slot['available_time'],
-                    'status' => 'Pending',
-                    'admin_note' => 'Booking rescheduled by admin. Awaiting customer confirmation.',
-                ], ['id' => $bookingId]);
-                $connection->commit();
+                $entityManager->wrapInTransaction(function () use ($bookings, $availability, $bookingId, $slotId): void {
+                    $booking = $bookings->findLockedActive($bookingId);
+                    $newSlot = $availability->findLockedAvailable($slotId);
+                    if ($booking === null || $newSlot === null) {
+                        throw new \RuntimeException('Booking or new schedule was not available.');
+                    }
+
+                    $oldSlot = $booking->getAvailability();
+                    if ($oldSlot !== null && $oldSlot->getId() !== null) {
+                        $lockedOldSlot = $availability->findLocked($oldSlot->getId());
+                        $lockedOldSlot?->setStatus('Available');
+                    }
+
+                    $newSlot->setStatus('Booked');
+                    $booking->setSchedule($newSlot, 'Booking rescheduled by admin. Awaiting customer confirmation.');
+                });
                 $this->addFlash('success', 'Booking rescheduled.');
             } elseif ($action === 'delete_booking' && $bookingId && $bookingId > 0) {
                 $trashManager->trash($bookingId);
@@ -171,25 +199,31 @@ final class AdminController extends AbstractController
             } elseif ($action === 'add_slot') {
                 $date = $request->request->getString('available_date');
                 $time = $request->request->getString('available_time');
-                $parsedDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
-                $parsedTime = \DateTimeImmutable::createFromFormat('!H:i', $time);
-                if (!$parsedDate || $parsedDate->format('Y-m-d') !== $date || !$parsedTime || $parsedTime->format('H:i') !== $time || $date < date('Y-m-d')) {
+                $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+                $parsedTime = DateTimeImmutable::createFromFormat('!H:i', $time);
+                if (!$parsedDate || $parsedDate->format('Y-m-d') !== $date
+                    || !$parsedTime || $parsedTime->format('H:i') !== $time
+                    || $date < date('Y-m-d')) {
                     throw new \RuntimeException('Enter a valid future date and time.');
                 }
-                $connection->insert('availability', ['available_date' => $date, 'available_time' => $time.':00', 'status' => 'Available']);
+
+                $entityManager->persist(new Availability($parsedDate, $parsedTime));
+                $entityManager->flush();
                 $this->addFlash('success', 'New available schedule added.');
             } elseif (in_array($action, ['block_slot', 'unblock_slot'], true) && $slotId && $slotId > 0) {
                 $oldStatus = $action === 'block_slot' ? 'Available' : 'Blocked';
                 $newStatus = $action === 'block_slot' ? 'Blocked' : 'Available';
-                $connection->executeStatement('UPDATE availability SET status = ? WHERE id = ? AND status = ?', [$newStatus, $slotId, $oldStatus]);
+                $entityManager->wrapInTransaction(function () use ($availability, $slotId, $oldStatus, $newStatus): void {
+                    $slot = $availability->findLocked($slotId);
+                    if ($slot !== null && $slot->getStatus() === $oldStatus) {
+                        $slot->setStatus($newStatus);
+                    }
+                });
                 $this->addFlash('success', $action === 'block_slot' ? 'Schedule slot blocked.' : 'Schedule slot made available.');
             } else {
                 throw new \RuntimeException('Invalid admin action.');
             }
         } catch (\Throwable $exception) {
-            if ($connection->isTransactionActive()) {
-                $connection->rollBack();
-            }
             $this->addFlash('error', $exception instanceof UniqueConstraintViolationException
                 ? 'That date and time already exists.'
                 : $exception->getMessage());
@@ -199,8 +233,12 @@ final class AdminController extends AbstractController
     }
 
     #[Route('/admin/report-action', name: 'admin_report_action', methods: ['POST'])]
-    public function reportAction(Request $request, Connection $connection, CsrfTokenManagerInterface $csrfTokens): Response
-    {
+    public function reportAction(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ReportRepository $reports,
+        CsrfTokenManagerInterface $csrfTokens,
+    ): Response {
         if (!$csrfTokens->isTokenValid(new CsrfToken('admin_report', $request->request->getString('_token')))) {
             throw $this->createAccessDeniedException('Invalid request token.');
         }
@@ -211,7 +249,11 @@ final class AdminController extends AbstractController
         if (!$reportId || $reportId < 1 || !in_array($status, ['New', 'Read', 'Resolved'], true)) {
             $this->addFlash('error', 'Invalid report update.');
         } else {
-            $connection->update('reports', ['status' => $status, 'admin_reply' => $reply !== '' ? $reply : null], ['id' => $reportId]);
+            $report = $reports->find($reportId);
+            if ($report !== null) {
+                $report->setStatusAndReply($status, $reply !== '' ? $reply : null);
+                $entityManager->flush();
+            }
             $this->addFlash('success', 'Report updated successfully.');
         }
 

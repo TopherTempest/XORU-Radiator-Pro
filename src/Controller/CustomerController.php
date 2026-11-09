@@ -2,9 +2,15 @@
 
 namespace App\Controller;
 
+use App\Entity\Report;
 use App\Security\XoruUser;
 use App\Service\BookingTrashManager;
-use Doctrine\DBAL\Connection;
+use App\Repository\AvailabilityRepository;
+use App\Repository\BookingRepository;
+use App\Repository\CustomerRepository;
+use App\Repository\ReportRepository;
+use App\Repository\ServiceRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Attribute\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,20 +23,25 @@ final class CustomerController extends AbstractController
 {
     #[Route('/customer/dashboard', name: 'customer_dashboard', methods: ['GET'])]
     #[IsGranted('ROLE_CUSTOMER')]
-    public function dashboard(Connection $connection): Response
-    {
+    public function dashboard(
+        CustomerRepository $customers,
+        ServiceRepository $services,
+        AvailabilityRepository $availability,
+        BookingRepository $bookings,
+        ReportRepository $reports,
+    ): Response {
         $customerId = $this->customerId();
-        $customer = $connection->fetchAssociative('SELECT id, name, email, provider FROM customers WHERE id = ?', [$customerId]);
+        $customer = $customers->find($customerId);
         if (!$customer) {
             throw $this->createAccessDeniedException('Customer account no longer exists.');
         }
 
         return $this->render('customer/dashboard.html.twig', [
             'customer' => $customer,
-            'services' => $connection->fetchAllAssociative('SELECT id, service_name FROM services ORDER BY id'),
-            'slots' => $connection->fetchAllAssociative("SELECT id, available_date, available_time FROM availability WHERE status = 'Available' AND available_date >= CURDATE() ORDER BY available_date, available_time"),
-            'bookings' => $connection->fetchAllAssociative('SELECT b.*, s.service_name FROM bookings b JOIN services s ON s.id = b.service_id WHERE b.customer_id = ? AND b.deleted_at IS NULL ORDER BY b.created_at DESC', [$customerId]),
-            'reports' => $connection->fetchAllAssociative('SELECT id, type, rating, subject, message, status, admin_reply, created_at FROM reports WHERE customer_id = ? ORDER BY created_at DESC', [$customerId]),
+            'services' => $services->findOptions(),
+            'slots' => $availability->findUpcomingRows(availableOnly: true),
+            'bookings' => $bookings->findCustomerRows($customerId),
+            'reports' => $reports->findCustomerRows($customerId),
         ]);
     }
 
@@ -65,8 +76,12 @@ final class CustomerController extends AbstractController
 
     #[Route('/customer/report', name: 'customer_report_submit', methods: ['POST'])]
     #[IsGranted('ROLE_CUSTOMER')]
-    public function submitReport(Request $request, Connection $connection, CsrfTokenManagerInterface $csrfTokens): Response
-    {
+    public function submitReport(
+        Request $request,
+        CustomerRepository $customers,
+        EntityManagerInterface $entityManager,
+        CsrfTokenManagerInterface $csrfTokens,
+    ): Response {
         if (!$csrfTokens->isTokenValid(new CsrfToken('report', $request->request->getString('_token')))) {
             throw $this->createAccessDeniedException('Invalid request token.');
         }
@@ -85,13 +100,13 @@ final class CustomerController extends AbstractController
             return $this->redirectToRoute('customer_dashboard', ['tab' => 'reports']);
         }
 
-        $connection->insert('reports', [
-            'customer_id' => $this->customerId(),
-            'type' => $type,
-            'rating' => $type === 'Review' ? $rating : null,
-            'subject' => $subject,
-            'message' => $message,
-        ]);
+        $customer = $customers->find($this->customerId());
+        if ($customer === null) {
+            throw $this->createAccessDeniedException('Customer account no longer exists.');
+        }
+
+        $entityManager->persist(new Report($customer, $type, $type === 'Review' ? $rating : null, $subject, $message));
+        $entityManager->flush();
 
         $this->addFlash('success', 'Your report or review was submitted successfully.');
         return $this->redirectToRoute('customer_dashboard', ['tab' => 'reports']);
@@ -99,12 +114,12 @@ final class CustomerController extends AbstractController
 
     #[Route('/customer/settings', name: 'customer_settings', methods: ['GET'])]
     #[IsGranted('ROLE_CUSTOMER')]
-    public function settings(Connection $connection): Response
+    public function settings(CustomerRepository $customers): Response
     {
-        $customer = $connection->fetchAssociative(
-            'SELECT name, email, provider FROM customers WHERE id = ?',
-            [$this->customerId()]
-        );
+        $customer = $customers->find($this->customerId());
+        if ($customer === null) {
+            throw $this->createAccessDeniedException('Customer account no longer exists.');
+        }
 
         return $this->render('customer/settings.html.twig', ['customer' => $customer]);
     }

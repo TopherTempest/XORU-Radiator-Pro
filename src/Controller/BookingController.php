@@ -2,8 +2,12 @@
 
 namespace App\Controller;
 
+use App\Entity\Booking;
+use App\Repository\AvailabilityRepository;
+use App\Repository\CustomerRepository;
+use App\Repository\ServiceRepository;
 use DateTimeImmutable;
-use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,8 +18,14 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 final class BookingController extends AbstractController
 {
     #[Route('/booking', name: 'booking_submit', methods: ['POST'])]
-    public function submit(Request $request, Connection $connection, CsrfTokenManagerInterface $csrfTokens): Response
-    {
+    public function submit(
+        Request $request,
+        CustomerRepository $customers,
+        ServiceRepository $services,
+        AvailabilityRepository $availability,
+        EntityManagerInterface $entityManager,
+        CsrfTokenManagerInterface $csrfTokens,
+    ): Response {
         if (!$csrfTokens->isTokenValid(new CsrfToken('booking', $request->request->getString('_token')))) {
             throw $this->createAccessDeniedException('Invalid request token.');
         }
@@ -47,15 +57,19 @@ final class BookingController extends AbstractController
             return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
         }
 
-        if (!$connection->fetchOne('SELECT id FROM services WHERE id = ?', [$serviceId])) {
+        $service = $services->find($serviceId);
+        if ($service === null) {
             $this->addFlash('error', 'Select a valid service.');
             return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
         }
 
+        $customer = $customers->find((int) $request->getSession()->get('customer_id'));
+        if ($customer === null) {
+            throw $this->createAccessDeniedException('Customer account no longer exists.');
+        }
+
         $scheduledDate = null;
         $scheduledTime = null;
-        $lockedAvailabilityId = null;
-
         if ($type === 'booking') {
             $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
             $parsedTime = DateTimeImmutable::createFromFormat('!H:i', $time);
@@ -66,44 +80,52 @@ final class BookingController extends AbstractController
                 $this->addFlash('error', 'Choose a valid future schedule.');
                 return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
             }
-            $scheduledDate = $date;
-            $scheduledTime = $time.':00';
-            $lockedAvailabilityId = $availabilityId;
+            $scheduledDate = $parsedDate;
+            $scheduledTime = $parsedTime;
         }
 
         try {
-            $connection->beginTransaction();
-            if ($type === 'booking') {
-                $slot = $connection->fetchAssociative(
-                    "SELECT id, available_date, available_time FROM availability WHERE id = ? AND status = 'Available' FOR UPDATE",
-                    [$availabilityId]
-                );
-                if (!$slot || $slot['available_date'] !== $date || substr($slot['available_time'], 0, 5) !== $time) {
-                    throw new \RuntimeException('That schedule is no longer available. Please choose another slot.');
+            $entityManager->wrapInTransaction(function () use (
+                $entityManager,
+                $availability,
+                $customer,
+                $service,
+                $type,
+                $name,
+                $phone,
+                $vehicle,
+                $message,
+                $availabilityId,
+                $date,
+                $time,
+                $scheduledDate,
+                $scheduledTime,
+            ): void {
+                $slot = null;
+                if ($type === 'booking') {
+                    $slot = $availability->findLockedAvailable($availabilityId);
+                    if ($slot === null
+                        || $slot->getAvailableDate()->format('Y-m-d') !== $date
+                        || $slot->getAvailableTime()->format('H:i') !== $time) {
+                        throw new \RuntimeException('That schedule is no longer available. Please choose another slot.');
+                    }
+                    $slot->setStatus('Booked');
                 }
-            }
 
-            $connection->insert('bookings', [
-                'customer_id' => (int) $request->getSession()->get('customer_id'),
-                'form_type' => $type,
-                'name' => $name,
-                'phone' => $phone,
-                'vehicle' => $vehicle,
-                'service_id' => $serviceId,
-                'availability_id' => $lockedAvailabilityId,
-                'date' => $scheduledDate,
-                'time' => $scheduledTime,
-                'message' => $message,
-            ]);
-
-            if ($type === 'booking') {
-                $connection->update('availability', ['status' => 'Booked'], ['id' => $availabilityId]);
-            }
-            $connection->commit();
+                $entityManager->persist(new Booking(
+                    $customer,
+                    $type,
+                    $name,
+                    $phone,
+                    $vehicle,
+                    $service,
+                    $slot,
+                    $scheduledDate,
+                    $scheduledTime,
+                    $message,
+                ));
+            });
         } catch (\Throwable $exception) {
-            if ($connection->isTransactionActive()) {
-                $connection->rollBack();
-            }
             $this->addFlash('error', $exception instanceof \RuntimeException
                 ? $exception->getMessage()
                 : 'Your request could not be saved. Please try again.');

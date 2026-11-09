@@ -2,7 +2,10 @@
 
 namespace App\Security;
 
-use Doctrine\DBAL\Connection;
+use App\Entity\Admin;
+use App\Entity\Customer;
+use App\Repository\AdminRepository;
+use App\Repository\CustomerRepository;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -10,31 +13,38 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 final class XoruUserProvider implements UserProviderInterface
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    public function __construct(
+        private readonly CustomerRepository $customers,
+        private readonly AdminRepository $admins,
+    ) {
     }
 
     public function loadUserByIdentifier(string $identifier): UserInterface
     {
         [$accountType, $login] = array_pad(explode(':', $identifier, 2), 2, '');
         if (in_array($accountType, ['login', 'customer'], true)) {
-            $row = $this->connection->fetchAssociative(
-                'SELECT id, name, email, password FROM customers WHERE email = ? LIMIT 1',
-                [$login]
-            );
-            if ($row && $row['password']) {
-                return new XoruUser((int) $row['id'], $identifier, $row['password'], $row['name'], ['ROLE_CUSTOMER']);
+            $customer = $this->customers->findOneBy(['email' => $login]);
+            if ($customer instanceof Customer && $customer->getPassword() !== null && $customer->getId() !== null) {
+                return new XoruUser(
+                    $customer->getId(),
+                    $identifier,
+                    $customer->getPassword(),
+                    $customer->getName(),
+                    ['ROLE_CUSTOMER'],
+                );
             }
-
         }
 
         if (in_array($accountType, ['login', 'admin'], true)) {
-            $row = $this->connection->fetchAssociative(
-                'SELECT id, username, password FROM admins WHERE username = ? LIMIT 1',
-                [$login]
-            );
-            if ($row) {
-                return new XoruUser((int) $row['id'], $identifier, $row['password'], $row['username'], ['ROLE_ADMIN']);
+            $admin = $this->admins->findOneBy(['username' => $login]);
+            if ($admin instanceof Admin && $admin->getId() !== null) {
+                return new XoruUser(
+                    $admin->getId(),
+                    $identifier,
+                    $admin->getPassword(),
+                    $admin->getUsername(),
+                    ['ROLE_ADMIN'],
+                );
             }
         }
 

@@ -2,9 +2,10 @@
 
 namespace App\Controller;
 
+use App\Entity\Customer;
 use App\Security\XoruUser;
-use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,7 +31,7 @@ final class AuthController extends AbstractController
     #[Route('/customer/register', name: 'customer_register', methods: ['GET', 'POST'])]
     public function register(
         Request $request,
-        Connection $connection,
+        EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         CsrfTokenManagerInterface $csrfTokens,
     ): Response {
@@ -54,12 +55,10 @@ final class AuthController extends AbstractController
             } else {
                 $user = new XoruUser(0, 'customer:'.$email, '', $name, ['ROLE_CUSTOMER']);
                 try {
-                    $connection->insert('customers', [
-                        'name' => $name,
-                        'email' => $email,
-                        'password' => $passwordHasher->hashPassword($user, $password),
-                        'provider' => 'email',
-                    ]);
+                    $customer = new Customer($name, $email, provider: 'email');
+                    $customer->setPassword($passwordHasher->hashPassword($user, $password));
+                    $entityManager->persist($customer);
+                    $entityManager->flush();
                     $this->addFlash('success', 'Your account is ready. Sign in to continue.');
                     return $this->redirectToRoute('customer_login');
                 } catch (UniqueConstraintViolationException) {
