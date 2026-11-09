@@ -54,10 +54,13 @@ CREATE TABLE IF NOT EXISTS bookings (
     admin_note TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL,
+    deleted_slot_was_booked TINYINT(1) DEFAULT NULL,
     INDEX idx_bookings_customer_id (customer_id),
     INDEX idx_bookings_service_id (service_id),
     INDEX idx_bookings_availability_id (availability_id),
     INDEX idx_bookings_status (status),
+    INDEX idx_bookings_deleted_at (deleted_at),
     CONSTRAINT fk_bookings_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_bookings_service FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_bookings_availability FOREIGN KEY (availability_id) REFERENCES availability(id) ON DELETE SET NULL ON UPDATE CASCADE

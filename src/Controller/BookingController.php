@@ -26,6 +26,7 @@ final class BookingController extends AbstractController
         }
 
         $type = $request->request->getString('form_type', 'booking');
+        $dashboardTab = $type === 'estimate' ? 'estimate' : 'booking';
         $name = trim($request->request->getString('name'));
         $phone = trim($request->request->getString('phone'));
         $vehicle = trim($request->request->getString('vehicle'));
@@ -43,12 +44,12 @@ final class BookingController extends AbstractController
             || $serviceId === false
             || $serviceId < 1) {
             $this->addFlash('error', 'Please complete all fields with valid contact details.');
-            return $this->redirectToRoute('customer_dashboard');
+            return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
         }
 
         if (!$connection->fetchOne('SELECT id FROM services WHERE id = ?', [$serviceId])) {
             $this->addFlash('error', 'Select a valid service.');
-            return $this->redirectToRoute('customer_dashboard');
+            return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
         }
 
         $scheduledDate = null;
@@ -63,7 +64,7 @@ final class BookingController extends AbstractController
                 || !$parsedTime || $parsedTime->format('H:i') !== $time
                 || $date < date('Y-m-d')) {
                 $this->addFlash('error', 'Choose a valid future schedule.');
-                return $this->redirectToRoute('customer_dashboard');
+                return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
             }
             $scheduledDate = $date;
             $scheduledTime = $time.':00';
@@ -106,10 +107,10 @@ final class BookingController extends AbstractController
             $this->addFlash('error', $exception instanceof \RuntimeException
                 ? $exception->getMessage()
                 : 'Your request could not be saved. Please try again.');
-            return $this->redirectToRoute('customer_dashboard');
+            return $this->redirectToRoute('customer_dashboard', ['tab' => $dashboardTab]);
         }
 
         $this->addFlash('success', $type === 'booking' ? 'Booking submitted successfully.' : 'Estimate request submitted.');
-        return $this->redirectToRoute('customer_dashboard');
+        return $this->redirectToRoute('customer_dashboard', ['tab' => 'bookings']);
     }
 }

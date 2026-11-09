@@ -1,12 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XORU Radiator Pro</title>
+{% extends 'base.html.twig' %}
+
+{% block title %}XORU Radiator Pro{% endblock %}
+
+{% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('style.css') }}">
-</head>
-<body>
+{% endblock %}
+
+{% block body %}
 <header class="site-header">
     <a class="brand" href="#home" aria-label="XORU Radiator Pro">
         <img src="{{ asset('assets/x-logo.png') }}" class="brand-x" alt="">
@@ -77,5 +77,4 @@ const availabilitySelect = document.getElementById('availabilitySelect');
 if (availabilitySelect) availabilitySelect.addEventListener('change', function () { const option = this.options[this.selectedIndex]; document.getElementById('bookingDate').value = option.dataset.date || ''; document.getElementById('bookingTime').value = option.dataset.time || ''; });
 </script>
 <script src="{{ asset('script.js') }}"></script>
-</body>
-</html>
+{% endblock %}

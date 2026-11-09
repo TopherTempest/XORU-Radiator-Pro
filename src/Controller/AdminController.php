@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Security\XoruUser;
+use App\Service\BookingTrashManager;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Attribute\IsGranted;
@@ -18,22 +19,27 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 final class AdminController extends AbstractController
 {
     #[Route('/admin', name: 'admin_dashboard', methods: ['GET'])]
-    public function dashboard(Connection $connection): Response
+    public function dashboard(Connection $connection, Request $request): Response
     {
         $month = date('Y-m');
         $bookings = $connection->fetchAllAssociative(
-            'SELECT b.*, s.service_name, c.name AS customer_name, c.email AS customer_email FROM bookings b JOIN services s ON s.id = b.service_id JOIN customers c ON c.id = b.customer_id ORDER BY b.created_at DESC'
+            'SELECT b.*, s.service_name, c.name AS customer_name, c.email AS customer_email FROM bookings b JOIN services s ON s.id = b.service_id JOIN customers c ON c.id = b.customer_id WHERE b.deleted_at IS NULL ORDER BY b.created_at DESC'
+        );
+        $trashedBookings = $connection->fetchAllAssociative(
+            'SELECT b.*, s.service_name, c.name AS customer_name, c.email AS customer_email FROM bookings b JOIN services s ON s.id = b.service_id JOIN customers c ON c.id = b.customer_id WHERE b.deleted_at IS NOT NULL ORDER BY b.deleted_at DESC'
         );
 
         return $this->render('admin/dashboard.html.twig', [
             'bookings' => $bookings,
+            'trashedBookings' => $trashedBookings,
+            'bookingView' => $request->query->get('tab') === 'trash' ? 'trash' : 'active',
             'slots' => $connection->fetchAllAssociative('SELECT id, available_date, available_time, status FROM availability WHERE available_date >= CURDATE() ORDER BY available_date, available_time'),
             'freeSlots' => $connection->fetchAllAssociative("SELECT id, available_date, available_time FROM availability WHERE status = 'Available' AND available_date >= CURDATE() ORDER BY available_date, available_time"),
             'subscribers' => $connection->fetchAllAssociative('SELECT id, email, created_at FROM subscribers ORDER BY created_at DESC'),
             'metrics' => [
-                'monthBookings' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE date LIKE ?", [$month.'%']),
-                'pending' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE date LIKE ? AND status = 'Pending'", [$month.'%']),
-                'approved' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE date LIKE ? AND status = 'Approved'", [$month.'%']),
+                'monthBookings' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ?", [$month.'%']),
+                'pending' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ? AND status = 'Pending'", [$month.'%']),
+                'approved' => (int) $connection->fetchOne("SELECT COUNT(*) FROM bookings WHERE deleted_at IS NULL AND date LIKE ? AND status = 'Approved'", [$month.'%']),
                 'customers' => (int) $connection->fetchOne('SELECT COUNT(*) FROM customers'),
             ],
         ]);
@@ -43,7 +49,7 @@ final class AdminController extends AbstractController
     public function customers(Connection $connection): Response
     {
         return $this->render('admin/customers.html.twig', [
-            'customers' => $connection->fetchAllAssociative('SELECT c.id, c.name, c.email, c.provider, c.created_at, COUNT(b.id) AS booking_count FROM customers c LEFT JOIN bookings b ON b.customer_id = c.id GROUP BY c.id, c.name, c.email, c.provider, c.created_at ORDER BY c.created_at DESC'),
+            'customers' => $connection->fetchAllAssociative('SELECT c.id, c.name, c.email, c.provider, c.created_at, COUNT(b.id) AS booking_count FROM customers c LEFT JOIN bookings b ON b.customer_id = c.id AND b.deleted_at IS NULL GROUP BY c.id, c.name, c.email, c.provider, c.created_at ORDER BY c.created_at DESC'),
         ]);
     }
 
@@ -102,7 +108,12 @@ final class AdminController extends AbstractController
     }
 
     #[Route('/admin/action', name: 'admin_action', methods: ['POST'])]
-    public function action(Request $request, Connection $connection, CsrfTokenManagerInterface $csrfTokens): Response
+    public function action(
+        Request $request,
+        Connection $connection,
+        CsrfTokenManagerInterface $csrfTokens,
+        BookingTrashManager $trashManager,
+    ): Response
     {
         if (!$csrfTokens->isTokenValid(new CsrfToken('admin_action', $request->request->getString('_token')))) {
             throw $this->createAccessDeniedException('Invalid request token.');
@@ -111,6 +122,7 @@ final class AdminController extends AbstractController
         $action = $request->request->getString('action');
         $bookingId = filter_var($request->request->get('booking_id'), FILTER_VALIDATE_INT);
         $slotId = filter_var($request->request->get('availability_id'), FILTER_VALIDATE_INT);
+        $bookingView = in_array($action, ['delete_booking', 'restore_booking'], true) ? 'trash' : 'active';
 
         try {
             if ($action === 'status' && $bookingId && $bookingId > 0) {
@@ -119,7 +131,7 @@ final class AdminController extends AbstractController
                     throw new \RuntimeException('Invalid booking status.');
                 }
                 $connection->beginTransaction();
-                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? FOR UPDATE', [$bookingId]);
+                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$bookingId]);
                 if (!$booking) {
                     throw new \RuntimeException('Booking not found.');
                 }
@@ -132,7 +144,7 @@ final class AdminController extends AbstractController
                 $this->addFlash('success', 'Booking status updated.');
             } elseif ($action === 'reschedule' && $bookingId && $bookingId > 0 && $slotId && $slotId > 0) {
                 $connection->beginTransaction();
-                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? FOR UPDATE', [$bookingId]);
+                $booking = $connection->fetchAssociative('SELECT availability_id FROM bookings WHERE id = ? AND deleted_at IS NULL FOR UPDATE', [$bookingId]);
                 $slot = $connection->fetchAssociative("SELECT id, available_date, available_time FROM availability WHERE id = ? AND status = 'Available' FOR UPDATE", [$slotId]);
                 if (!$booking || !$slot) {
                     throw new \RuntimeException('Booking or new schedule was not available.');
@@ -150,6 +162,12 @@ final class AdminController extends AbstractController
                 ], ['id' => $bookingId]);
                 $connection->commit();
                 $this->addFlash('success', 'Booking rescheduled.');
+            } elseif ($action === 'delete_booking' && $bookingId && $bookingId > 0) {
+                $trashManager->trash($bookingId);
+                $this->addFlash('success', 'Booking or estimate moved to Trash.');
+            } elseif ($action === 'restore_booking' && $bookingId && $bookingId > 0) {
+                $trashManager->restore($bookingId);
+                $this->addFlash('success', 'Booking or estimate restored.');
             } elseif ($action === 'add_slot') {
                 $date = $request->request->getString('available_date');
                 $time = $request->request->getString('available_time');
@@ -177,7 +195,7 @@ final class AdminController extends AbstractController
                 : $exception->getMessage());
         }
 
-        return $this->redirectToRoute('admin_dashboard');
+        return $this->redirectToRoute('admin_dashboard', ['tab' => $bookingView]);
     }
 
     #[Route('/admin/report-action', name: 'admin_report_action', methods: ['POST'])]

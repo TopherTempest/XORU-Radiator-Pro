@@ -1734,6 +1734,153 @@ textarea {
     transition:background .2s ease,color .2s ease;
 }
 
+.customer-dashboard-wrap {
+    padding:40px 0;
+}
+
+.customer-dashboard,
+.customer-settings-page {
+    width:min(1100px,100%);
+    margin:0 auto;
+}
+
+.customer-dashboard-header {
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:20px;
+}
+
+.customer-dashboard-header h2 {
+    margin-top:0;
+}
+
+.customer-dashboard-actions,
+.customer-settings-actions {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.portal-actions {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    margin:24px 0;
+}
+
+.portal-actions .btn {
+    min-height:48px;
+    transition:background-color .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease;
+}
+
+.portal-actions .btn[aria-selected="true"] {
+    box-shadow:0 0 0 3px rgba(18,101,189,.18);
+}
+
+.portal-tab-panel[hidden] {
+    display:none !important;
+}
+
+.portal-tab-panel.is-active {
+    animation:portal-panel-enter .22s ease-out;
+}
+
+@keyframes portal-panel-enter {
+    from { opacity:0; transform:translateY(6px); }
+    to { opacity:1; transform:translateY(0); }
+}
+
+.portal-card {
+    background:#22242a;
+    border:1px solid #41444c;
+    border-radius:12px;
+    padding:20px;
+    margin:16px 0;
+}
+
+.portal-form {
+    display:grid;
+    gap:12px;
+}
+
+.portal-table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+.portal-table th,
+.portal-table td {
+    padding:10px;
+    border-bottom:1px solid #3d3f46;
+    text-align:left;
+    vertical-align:top;
+}
+
+.portal-subheading {
+    margin-top:28px;
+}
+
+.table-scroll {
+    overflow-x:auto;
+}
+
+.success-box {
+    background:#12351e;
+    border:1px solid #38a85a;
+    color:#b8f3c8;
+    padding:14px;
+    border-radius:8px;
+    margin:16px 0;
+}
+
+.customer-settings-page > p {
+    margin-bottom:18px;
+}
+
+.customer-settings-page .customer-settings-card {
+    margin:16px 0;
+}
+
+.customer-settings-page .customer-settings-actions {
+    margin-top:20px;
+}
+
+@media(max-width:700px) {
+    .customer-dashboard-wrap {
+        padding:20px 0;
+    }
+
+    .customer-dashboard-header {
+        flex-direction:column;
+    }
+
+    .portal-actions {
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        margin:18px 0;
+    }
+
+    .portal-actions .btn {
+        padding:12px 8px;
+        font-size:13px;
+    }
+
+    .portal-card {
+        padding:16px;
+    }
+
+    .portal-table {
+        min-width:680px;
+    }
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .portal-tab-panel.is-active {
+        animation:none;
+    }
+}
+
 .customer-settings-page {
     color:inherit;
 }
@@ -1867,6 +2014,10 @@ html.customer-light .customer-page .customer-settings-card {
     border-color:#dfe5ec;
 }
 
+html.customer-light .portal-actions .btn[aria-selected="true"] {
+    box-shadow:0 0 0 3px rgba(18,101,189,.14);
+}
+
 html.customer-light .customer-page .portal-table th,
 html.customer-light .customer-page .portal-table td {
     border-bottom-color:#e6e9ef;
@@ -1932,6 +2083,33 @@ html.customer-light .customer-page .small-btn.outline:hover {
 
 .admin-settings-header {
     margin-bottom:20px;
+}
+
+.admin-booking-tabs {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:0 0 18px;
+}
+
+.admin-booking-actions {
+    display:grid;
+    gap:10px;
+    min-width:140px;
+}
+
+.admin-delete-button {
+    width:100%;
+}
+
+.admin-trash-note {
+    margin:0 18px 16px;
+    color:#667085;
+}
+
+.admin-dark .admin-trash-note,
+html.admin-dark .admin-trash-note {
+    color:#b8c2ce;
 }
 
 .admin-settings-header h1 {

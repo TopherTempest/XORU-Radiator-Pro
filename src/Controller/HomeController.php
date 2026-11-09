@@ -20,4 +20,18 @@ final class HomeController extends AbstractController
             'subscribeMessage' => $request->getSession()->getFlashBag()->get('subscribe_message')[0] ?? $request->getSession()->getFlashBag()->get('subscribe_error')[0] ?? '',
         ]);
     }
+
+    #[Route('/dashboard', name: 'dashboard', methods: ['GET'])]
+    public function dashboard(): Response
+    {
+        if ($this->isGranted('ROLE_ADMIN')) {
+            return $this->redirectToRoute('admin_dashboard');
+        }
+
+        if ($this->isGranted('ROLE_CUSTOMER')) {
+            return $this->redirectToRoute('customer_dashboard');
+        }
+
+        return $this->redirectToRoute('customer_login');
+    }
 }

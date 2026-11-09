@@ -1,15 +1,191 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>My XORU Account</title><link rel="stylesheet" href="{{ asset('style.css') }}"><script>document.documentElement.classList.add((localStorage.getItem('xoruCustomerTheme') || 'dark') === 'light' ? 'customer-light' : 'customer-dark');</script>
-<style>.portal-actions{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}.portal-card{background:#22242a;border:1px solid #41444c;border-radius:12px;padding:20px;margin:16px 0}.portal-panel{margin:20px 0}.portal-table{width:100%;border-collapse:collapse}.portal-table th,.portal-table td{padding:10px;border-bottom:1px solid #3d3f46;text-align:left;vertical-align:top}.success-box{background:#12351e;border:1px solid #38a85a;color:#b8f3c8;padding:14px;border-radius:8px;margin:16px 0}@media(max-width:700px){.portal-table{min-width:680px}.table-scroll{overflow:auto}}</style></head>
-<body class="customer-page"><main class="wrap" style="padding:40px 0"><section class="modal-box" style="width:min(1100px,100%);margin:auto">
-<h2>Welcome, {{ customer.name|e }}!</h2><p>Manage your repair requests, estimates, and schedules from your customer account.</p>
-{% for message in app.flashes('success') %}<div class="success-box">{{ message }}</div>{% endfor %}{% for message in app.flashes('error') %}<div class="admin-login-error">{{ message }}</div>{% endfor %}
-<div class="portal-actions"><a class="btn primary" href="#bookingPanel">Book a Repair</a><a class="btn outline" href="#estimatePanel">Get an Estimate</a><a class="btn outline" href="#schedulePanel">Available Date &amp; Time</a><a class="btn outline" href="#bookings">My Bookings</a><a class="btn outline" href="#reportPanel">Report / Review</a><a class="btn outline" href="{{ path('customer_settings') }}">Settings</a></div>
-<section id="bookingPanel" class="portal-card"><h3>Book a Repair</h3><form action="{{ path('booking_submit') }}" method="post" style="display:grid;gap:12px"><input type="hidden" name="_token" value="{{ csrf_token('booking') }}"><input type="hidden" name="form_type" value="booking"><input name="name" value="{{ customer.name|e }}" placeholder="Full Name" required><input name="phone" placeholder="Phone Number" required><input name="vehicle" placeholder="Vehicle / Model" required><select name="service_id" required><option value="">Select Service</option>{% for service in services %}<option value="{{ service.id }}">{{ service.service_name }}</option>{% endfor %}</select><select name="availability_id" id="dashboardAvailability" required><option value="">Select Available Date &amp; Time</option>{% for slot in slots %}<option value="{{ slot.id }}" data-date="{{ slot.available_date }}" data-time="{{ slot.available_time|slice(0, 5) }}">{{ slot.available_date|date('M d, Y') }} - {{ slot.available_time|date('h:i A') }}</option>{% endfor %}</select><input type="hidden" name="date" id="dashboardDate"><input type="hidden" name="time" id="dashboardTime"><textarea name="message" placeholder="What seems to be wrong?" required></textarea><button class="btn primary" type="submit">Confirm Booking</button></form></section>
-<section id="estimatePanel" class="portal-card"><h3>Get an Estimate</h3><form action="{{ path('booking_submit') }}" method="post" style="display:grid;gap:12px"><input type="hidden" name="_token" value="{{ csrf_token('booking') }}"><input type="hidden" name="form_type" value="estimate"><input name="name" value="{{ customer.name|e }}" placeholder="Full Name" required><input name="phone" placeholder="Phone Number" required><input name="vehicle" placeholder="Vehicle / Model" required><select name="service_id" required><option value="">Select Service</option>{% for service in services %}<option value="{{ service.id }}">{{ service.service_name }}</option>{% endfor %}</select><textarea name="message" placeholder="Describe the problem" required></textarea><button class="btn primary" type="submit">Request Estimate</button></form></section>
-<section id="schedulePanel" class="portal-card"><h3>Available Dates &amp; Times</h3>{% if slots is empty %}<p>No available schedule slots have been added yet.</p>{% else %}<div class="table-scroll"><table class="portal-table"><thead><tr><th>Date</th><th>Time</th><th>Status</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.available_date|date('M d, Y') }}</td><td>{{ slot.available_time|date('h:i A') }}</td><td>Available</td></tr>{% endfor %}</tbody></table></div>{% endif %}</section>
-<section id="reportPanel" class="portal-card"><h3>Report an Inconvenience / Leave a Review</h3><form action="{{ path('customer_report_submit') }}" method="post" style="display:grid;gap:12px"><input type="hidden" name="_token" value="{{ csrf_token('report') }}"><select name="type" id="reportType"><option value="Inconvenience">Report an Inconvenience</option><option value="Review">Leave a Review</option></select><select name="rating" id="reportRating"><option value="">Select rating for review</option>{% for score in 5..1 %}<option value="{{ score }}">{{ score }} out of 5</option>{% endfor %}</select><input name="subject" maxlength="200" placeholder="Subject" required><textarea name="message" maxlength="5000" placeholder="Describe what happened or tell us about your experience" required></textarea><button class="btn primary" type="submit">Submit Report / Review</button></form></section>
-<h3 id="bookings">My Bookings &amp; Estimate Requests</h3>{% if bookings is empty %}<p>No requests yet.</p>{% else %}<div class="table-scroll"><table class="portal-table"><thead><tr><th>Type</th><th>Service</th><th>Vehicle</th><th>Schedule</th><th>Status</th><th>Admin Note</th></tr></thead><tbody>{% for booking in bookings %}<tr><td>{{ booking.form_type|capitalize }}</td><td>{{ booking.service_name }}</td><td>{{ booking.vehicle }}</td><td>{% if booking.date %}{{ booking.date|date('M d, Y') }}{% else %}Not scheduled{% endif %}<br>{% if booking.time %}{{ booking.time|date('h:i A') }}{% endif %}</td><td>{{ booking.status|upper }}</td><td>{{ booking.admin_note ?: '—' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-<h3 id="myReports">My Reports &amp; Reviews</h3>{% if reports is empty %}<p>No reports or reviews yet.</p>{% else %}<div class="table-scroll"><table class="portal-table"><thead><tr><th>Type</th><th>Subject</th><th>Rating</th><th>Status</th><th>Admin Reply</th><th>Date</th></tr></thead><tbody>{% for report in reports %}<tr><td>{{ report.type }}</td><td><strong>{{ report.subject }}</strong><br>{{ report.message }}</td><td>{{ report.rating ?: '—' }}</td><td>{{ report.status }}</td><td>{{ report.admin_reply ?: '—' }}</td><td>{{ report.created_at|date('M d, Y') }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-<div style="margin-top:25px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn outline" href="{{ path('home') }}">View Website</a><a class="btn outline" href="{{ path('app_logout') }}">Logout</a></div></section></main>
-<script>const availability=document.getElementById('dashboardAvailability');availability?.addEventListener('change',()=>{const option=availability.options[availability.selectedIndex];document.getElementById('dashboardDate').value=option.dataset.date||'';document.getElementById('dashboardTime').value=option.dataset.time||'';});</script></body></html>
+{% extends 'base.html.twig' %}
+
+{% block title %}My XORU Account{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+    <script>document.documentElement.classList.add((localStorage.getItem('xoruCustomerTheme') || 'dark') === 'light' ? 'customer-light' : 'customer-dark');</script>
+    <script src="{{ asset('customer-dashboard.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+    <div class="customer-page">
+        <main class="wrap customer-dashboard-wrap">
+            <section class="modal-box customer-dashboard">
+                <header class="customer-dashboard-header">
+                    <div>
+                        <h2>Welcome, {{ customer.name|e }}!</h2>
+                        <p>Manage your repair requests, estimates, and schedules from your customer account.</p>
+                    </div>
+                    <div class="customer-dashboard-actions">
+                        <a class="btn outline" href="{{ path('home') }}">View Website</a>
+                        <a class="btn outline" href="{{ path('app_logout') }}">Logout</a>
+                    </div>
+                </header>
+
+                {% for message in app.flashes('success') %}
+                    <div class="success-box">{{ message }}</div>
+                {% endfor %}
+                {% for message in app.flashes('error') %}
+                    <div class="admin-login-error">{{ message }}</div>
+                {% endfor %}
+
+                <nav class="portal-actions" role="tablist" aria-label="Customer dashboard sections" data-dashboard-tablist>
+                    <button class="btn primary" type="button" id="tab-booking" role="tab" aria-controls="bookingPanel" aria-selected="true" tabindex="0" data-dashboard-tab="booking">Book a Repair</button>
+                    <button class="btn outline" type="button" id="tab-estimate" role="tab" aria-controls="estimatePanel" aria-selected="false" tabindex="-1" data-dashboard-tab="estimate">Get an Estimate</button>
+                    <button class="btn outline" type="button" id="tab-availability" role="tab" aria-controls="schedulePanel" aria-selected="false" tabindex="-1" data-dashboard-tab="availability">Available Date &amp; Time</button>
+                    <button class="btn outline" type="button" id="tab-bookings" role="tab" aria-controls="bookingsPanel" aria-selected="false" tabindex="-1" data-dashboard-tab="bookings">My Bookings</button>
+                    <button class="btn outline" type="button" id="tab-reports" role="tab" aria-controls="reportPanel" aria-selected="false" tabindex="-1" data-dashboard-tab="reports">Report / Review</button>
+                    <button class="btn outline" type="button" id="tab-settings" role="tab" aria-controls="settingsPanel" aria-selected="false" tabindex="-1" data-dashboard-tab="settings">Settings</button>
+                </nav>
+
+                <section id="bookingPanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-booking" data-dashboard-panel="booking">
+                    <h3>Book a Repair</h3>
+                    <form action="{{ path('booking_submit') }}" method="post" class="portal-form">
+                        <input type="hidden" name="_token" value="{{ csrf_token('booking') }}">
+                        <input type="hidden" name="form_type" value="booking">
+                        <input name="name" value="{{ customer.name|e }}" placeholder="Full Name" required>
+                        <input name="phone" placeholder="Phone Number" required>
+                        <input name="vehicle" placeholder="Vehicle / Model" required>
+                        <select name="service_id" required>
+                            <option value="">Select Service</option>
+                            {% for service in services %}
+                                <option value="{{ service.id }}">{{ service.service_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="availability_id" id="dashboardAvailability" required>
+                            <option value="">Select Available Date &amp; Time</option>
+                            {% for slot in slots %}
+                                <option value="{{ slot.id }}" data-date="{{ slot.available_date }}" data-time="{{ slot.available_time|slice(0, 5) }}">{{ slot.available_date|date('M d, Y') }} - {{ slot.available_time|date('h:i A') }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="date" id="dashboardDate">
+                        <input type="hidden" name="time" id="dashboardTime">
+                        <textarea name="message" placeholder="What seems to be wrong?" required></textarea>
+                        <button class="btn primary" type="submit">Confirm Booking</button>
+                    </form>
+                </section>
+
+                <section id="estimatePanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-estimate" data-dashboard-panel="estimate" hidden>
+                    <h3>Get an Estimate</h3>
+                    <form action="{{ path('booking_submit') }}" method="post" class="portal-form">
+                        <input type="hidden" name="_token" value="{{ csrf_token('booking') }}">
+                        <input type="hidden" name="form_type" value="estimate">
+                        <input name="name" value="{{ customer.name|e }}" placeholder="Full Name" required>
+                        <input name="phone" placeholder="Phone Number" required>
+                        <input name="vehicle" placeholder="Vehicle / Model" required>
+                        <select name="service_id" required>
+                            <option value="">Select Service</option>
+                            {% for service in services %}
+                                <option value="{{ service.id }}">{{ service.service_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="message" placeholder="Describe the problem" required></textarea>
+                        <button class="btn primary" type="submit">Request Estimate</button>
+                    </form>
+                </section>
+
+                <section id="schedulePanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-availability" data-dashboard-panel="availability" hidden>
+                    <h3>Available Dates &amp; Times</h3>
+                    {% if slots is empty %}
+                        <p>No available schedule slots have been added yet.</p>
+                    {% else %}
+                        <div class="table-scroll">
+                            <table class="portal-table">
+                                <thead><tr><th>Date</th><th>Time</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    {% for slot in slots %}
+                                        <tr><td>{{ slot.available_date|date('M d, Y') }}</td><td>{{ slot.available_time|date('h:i A') }}</td><td>Available</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <section id="bookingsPanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-bookings" data-dashboard-panel="bookings" hidden>
+                    <h3 id="bookings">My Bookings &amp; Estimate Requests</h3>
+                    {% if bookings is empty %}
+                        <p>No requests yet.</p>
+                    {% else %}
+                        <div class="table-scroll">
+                            <table class="portal-table">
+                                <thead><tr><th>Type</th><th>Service</th><th>Vehicle</th><th>Schedule</th><th>Status</th><th>Admin Note</th><th>Action</th></tr></thead>
+                                <tbody>
+                                    {% for booking in bookings %}
+                                        <tr>
+                                            <td>{{ booking.form_type|capitalize }}</td>
+                                            <td>{{ booking.service_name }}</td>
+                                            <td>{{ booking.vehicle }}</td>
+                                            <td>{% if booking.date %}{{ booking.date|date('M d, Y') }}{% else %}Not scheduled{% endif %}<br>{% if booking.time %}{{ booking.time|date('h:i A') }}{% endif %}</td>
+                                            <td>{{ booking.status|upper }}</td>
+                                            <td>{{ booking.admin_note ?: '—' }}</td>
+                                            <td>
+                                                <form action="{{ path('customer_booking_delete') }}" method="post" onsubmit="return confirm('Move this request to Trash? An administrator can restore it later.');">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('customer_delete_booking') }}">
+                                                    <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                                    <button class="btn outline portal-delete-button" type="submit">Delete</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <section id="reportPanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-reports" data-dashboard-panel="reports" hidden>
+                    <h3>Report an Inconvenience / Leave a Review</h3>
+                    <form action="{{ path('customer_report_submit') }}" method="post" class="portal-form">
+                        <input type="hidden" name="_token" value="{{ csrf_token('report') }}">
+                        <select name="type" id="reportType">
+                            <option value="Inconvenience">Report an Inconvenience</option>
+                            <option value="Review">Leave a Review</option>
+                        </select>
+                        <select name="rating" id="reportRating">
+                            <option value="">Select rating for review</option>
+                            {% for score in 5..1 %}
+                                <option value="{{ score }}">{{ score }} out of 5</option>
+                            {% endfor %}
+                        </select>
+                        <input name="subject" maxlength="200" placeholder="Subject" required>
+                        <textarea name="message" maxlength="5000" placeholder="Describe what happened or tell us about your experience" required></textarea>
+                        <button class="btn primary" type="submit">Submit Report / Review</button>
+                    </form>
+                    <h3 id="myReports" class="portal-subheading">My Reports &amp; Reviews</h3>
+                    {% if reports is empty %}
+                        <p>No reports or reviews yet.</p>
+                    {% else %}
+                        <div class="table-scroll">
+                            <table class="portal-table">
+                                <thead><tr><th>Type</th><th>Subject</th><th>Rating</th><th>Status</th><th>Admin Reply</th><th>Date</th></tr></thead>
+                                <tbody>
+                                    {% for report in reports %}
+                                        <tr>
+                                            <td>{{ report.type }}</td>
+                                            <td><strong>{{ report.subject }}</strong><br>{{ report.message }}</td>
+                                            <td>{{ report.rating ?: '—' }}</td>
+                                            <td>{{ report.status }}</td>
+                                            <td>{{ report.admin_reply ?: '—' }}</td>
+                                            <td>{{ report.created_at|date('M d, Y') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <section id="settingsPanel" class="portal-card portal-tab-panel" role="tabpanel" aria-labelledby="tab-settings" data-dashboard-panel="settings" hidden>
+                    <h3>Settings</h3>
+                    {% include 'customer/_settings_content.html.twig' %}
+                </section>
+            </section>
+        </main>
+    </div>
+{% endblock %}

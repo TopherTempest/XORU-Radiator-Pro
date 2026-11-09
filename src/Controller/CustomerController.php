@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Security\XoruUser;
+use App\Service\BookingTrashManager;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Attribute\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,7 +20,7 @@ final class CustomerController extends AbstractController
     public function dashboard(Connection $connection): Response
     {
         $customerId = $this->customerId();
-        $customer = $connection->fetchAssociative('SELECT id, name, email FROM customers WHERE id = ?', [$customerId]);
+        $customer = $connection->fetchAssociative('SELECT id, name, email, provider FROM customers WHERE id = ?', [$customerId]);
         if (!$customer) {
             throw $this->createAccessDeniedException('Customer account no longer exists.');
         }
@@ -28,9 +29,38 @@ final class CustomerController extends AbstractController
             'customer' => $customer,
             'services' => $connection->fetchAllAssociative('SELECT id, service_name FROM services ORDER BY id'),
             'slots' => $connection->fetchAllAssociative("SELECT id, available_date, available_time FROM availability WHERE status = 'Available' AND available_date >= CURDATE() ORDER BY available_date, available_time"),
-            'bookings' => $connection->fetchAllAssociative('SELECT b.*, s.service_name FROM bookings b JOIN services s ON s.id = b.service_id WHERE b.customer_id = ? ORDER BY b.created_at DESC', [$customerId]),
+            'bookings' => $connection->fetchAllAssociative('SELECT b.*, s.service_name FROM bookings b JOIN services s ON s.id = b.service_id WHERE b.customer_id = ? AND b.deleted_at IS NULL ORDER BY b.created_at DESC', [$customerId]),
             'reports' => $connection->fetchAllAssociative('SELECT id, type, rating, subject, message, status, admin_reply, created_at FROM reports WHERE customer_id = ? ORDER BY created_at DESC', [$customerId]),
         ]);
+    }
+
+    #[Route('/customer/booking/delete', name: 'customer_booking_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_CUSTOMER')]
+    public function deleteBooking(
+        Request $request,
+        BookingTrashManager $trashManager,
+        CsrfTokenManagerInterface $csrfTokens,
+    ): Response {
+        if (!$csrfTokens->isTokenValid(new CsrfToken('customer_delete_booking', $request->request->getString('_token')))) {
+            throw $this->createAccessDeniedException('Invalid request token.');
+        }
+
+        $bookingId = filter_var($request->request->get('booking_id'), FILTER_VALIDATE_INT);
+        if (!$bookingId || $bookingId < 1) {
+            $this->addFlash('error', 'Select a valid booking to delete.');
+            return $this->redirectToRoute('customer_dashboard', ['tab' => 'bookings']);
+        }
+
+        try {
+            $trashManager->trash($bookingId, $this->customerId());
+            $this->addFlash('success', 'Your request was moved to Trash. Contact an administrator if it needs to be restored.');
+        } catch (\RuntimeException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        } catch (\Throwable) {
+            $this->addFlash('error', 'Your request could not be moved to Trash.');
+        }
+
+        return $this->redirectToRoute('customer_dashboard', ['tab' => 'bookings']);
     }
 
     #[Route('/customer/report', name: 'customer_report_submit', methods: ['POST'])]
@@ -52,7 +82,7 @@ final class CustomerController extends AbstractController
             || $message === '' || strlen($message) > 5000
             || ($type === 'Review' && ($rating === false || $rating < 1 || $rating > 5))) {
             $this->addFlash('error', 'Please check the report details and try again. Reviews need a rating from 1 to 5.');
-            return $this->redirectToRoute('customer_dashboard', ['_fragment' => 'reportPanel']);
+            return $this->redirectToRoute('customer_dashboard', ['tab' => 'reports']);
         }
 
         $connection->insert('reports', [
@@ -64,7 +94,7 @@ final class CustomerController extends AbstractController
         ]);
 
         $this->addFlash('success', 'Your report or review was submitted successfully.');
-        return $this->redirectToRoute('customer_dashboard', ['_fragment' => 'myReports']);
+        return $this->redirectToRoute('customer_dashboard', ['tab' => 'reports']);
     }
 
     #[Route('/customer/settings', name: 'customer_settings', methods: ['GET'])]

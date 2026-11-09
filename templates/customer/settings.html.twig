@@ -1,3 +1,28 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Customer Settings - XORU</title><link rel="stylesheet" href="{{ asset('style.css') }}"><script>document.documentElement.classList.add((localStorage.getItem('xoruCustomerTheme') || 'dark') === 'light' ? 'customer-light' : 'customer-dark');</script></head>
-<body class="customer-page"><main class="wrap" style="padding:40px 0"><section class="modal-box" style="width:min(900px,100%);margin:auto"><h2>Customer Settings</h2><p>Manage your account appearance and preferences.</p><section class="portal-card"><h3>Appearance</h3><button class="btn outline" type="button" onclick="setTheme('light')">Light mode</button> <button class="btn outline" type="button" onclick="setTheme('dark')">Dark mode</button></section><section class="portal-card"><h3>My Account</h3><p>Name: <strong>{{ customer.name }}</strong></p><p>Email: <strong>{{ customer.email }}</strong></p><p>Login Method: <strong>{{ customer.provider|capitalize }}</strong></p></section><a class="btn outline" href="{{ path('customer_dashboard') }}">Back to My Account</a> <a class="btn outline" href="{{ path('app_logout') }}">Logout</a></section></main><script>function setTheme(theme){document.documentElement.classList.remove('customer-light','customer-dark');document.documentElement.classList.add('customer-'+theme);localStorage.setItem('xoruCustomerTheme',theme);}</script></body></html>
+{% extends 'base.html.twig' %}
+
+{% block title %}Customer Settings - XORU{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+    <script>document.documentElement.classList.add((localStorage.getItem('xoruCustomerTheme') || 'dark') === 'light' ? 'customer-light' : 'customer-dark');</script>
+    <script src="{{ asset('customer-dashboard.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+    <div class="customer-page">
+        <main class="wrap customer-dashboard-wrap">
+            <section class="modal-box customer-settings-page">
+                <h2>Customer Settings</h2>
+                <p>Manage your account appearance and preferences.</p>
+                {% include 'customer/_settings_content.html.twig' %}
+                <div class="customer-settings-actions">
+                    <a class="btn outline" href="{{ path('customer_dashboard') }}">Back to My Account</a>
+                    <a class="btn outline" href="{{ path('app_logout') }}">Logout</a>
+                </div>
+            </section>
+        </main>
+    </div>
+{% endblock %}

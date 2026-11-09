@@ -1,9 +1,165 @@
-{% extends 'admin/_layout.html.twig' %}{% block title %}XORU Admin Dashboard{% endblock %}{% block heading %}Dashboard{% endblock %}{% block content %}
-<div class="admin-dashboard">
-<div class="admin-settings-header"><h1>Dashboard</h1><p>Manage bookings, schedules, and customer subscriptions.</p></div>
-<div class="admin-metrics"><div class="admin-metric"><div class="metric-info"><strong>{{ metrics.monthBookings }}</strong><span>Bookings this month</span></div></div><div class="admin-metric"><div class="metric-info"><strong>{{ metrics.pending }}</strong><span>Pending</span></div></div><div class="admin-metric"><div class="metric-info"><strong>{{ metrics.approved }}</strong><span>Approved</span></div></div><div class="admin-metric"><div class="metric-info"><strong>{{ metrics.customers }}</strong><span>Customers</span></div></div></div>
-<section class="admin-card" id="bookings"><div class="admin-card-header"><h2>Bookings and Estimate Requests</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Customer</th><th>Type</th><th>Service / Vehicle</th><th>Schedule</th><th>Status</th><th>Actions</th></tr></thead><tbody>{% for booking in bookings %}<tr><td>{{ booking.customer_name }}<br><small>{{ booking.customer_email }}</small></td><td>{{ booking.form_type|capitalize }}</td><td>{{ booking.service_name }}<br>{{ booking.vehicle }}</td><td>{% if booking.date %}{{ booking.date|date('M d, Y') }} {{ booking.time|date('h:i A') }}{% else %}Estimate{% endif %}</td><td>{{ booking.status }}<br><small>{{ booking.admin_note }}</small></td><td>{% if booking.form_type == 'booking' %}<form action="{{ path('admin_action') }}" method="post" class="admin-booking-status-form"><input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}"><input type="hidden" name="action" value="status"><input type="hidden" name="booking_id" value="{{ booking.id }}"><select name="status"><option>Approved</option><option>Declined</option><option>Completed</option><option>Cancelled</option></select><button class="admin-btn primary" type="submit">Update</button></form><form action="{{ path('admin_action') }}" method="post" class="admin-form admin-booking-reschedule-form"><input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}"><input type="hidden" name="action" value="reschedule"><input type="hidden" name="booking_id" value="{{ booking.id }}"><select name="availability_id" required><option value="">Reschedule to...</option>{% for slot in freeSlots %}<option value="{{ slot.id }}">{{ slot.available_date|date('M d, Y') }} {{ slot.available_time|date('h:i A') }}</option>{% endfor %}</select><button class="admin-btn outline" type="submit">Reschedule</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No bookings yet.</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="admin-card" id="slots"><div class="admin-card-header"><h2>Manage Available Dates &amp; Times</h2></div><form action="{{ path('admin_action') }}" method="post" class="admin-form"><input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}"><input type="hidden" name="action" value="add_slot"><input type="date" name="available_date" required><input type="time" name="available_time" required><button class="admin-btn primary" type="submit">Add Available Slot</button></form><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Action</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.available_date|date('M d, Y') }}</td><td>{{ slot.available_time|date('h:i A') }}</td><td>{{ slot.status }}</td><td>{% if slot.status == 'Available' or slot.status == 'Blocked' %}<form action="{{ path('admin_action') }}" method="post"><input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}"><input type="hidden" name="availability_id" value="{{ slot.id }}"><input type="hidden" name="action" value="{{ slot.status == 'Available' ? 'block_slot' : 'unblock_slot' }}"><button class="admin-btn outline" type="submit">{{ slot.status == 'Available' ? 'Block' : 'Make Available' }}</button></form>{% else %}Booked{% endif %}</td></tr>{% else %}<tr><td colspan="4">No future schedule slots.</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="admin-card"><div class="admin-card-header"><h2>Subscribers</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Subscribed</th></tr></thead><tbody>{% for subscriber in subscribers %}<tr><td>{{ subscriber.email }}</td><td>{{ subscriber.created_at|date('M d, Y') }}</td></tr>{% else %}<tr><td colspan="2">No subscribers yet.</td></tr>{% endfor %}</tbody></table></div></section>
-</div>
+{% extends 'admin/_layout.html.twig' %}
+
+{% block title %}XORU Admin Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block content %}
+    <div class="admin-dashboard">
+        <div class="admin-settings-header">
+            <h1>Dashboard</h1>
+            <p>Manage bookings, schedules, and customer subscriptions.</p>
+        </div>
+
+        <div class="admin-metrics">
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.monthBookings }}</strong><span>Bookings this month</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.pending }}</strong><span>Pending</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.approved }}</strong><span>Approved</span></div></div>
+            <div class="admin-metric"><div class="metric-info"><strong>{{ metrics.customers }}</strong><span>Customers</span></div></div>
+        </div>
+
+        <nav class="admin-booking-tabs" aria-label="Booking records">
+            <a class="admin-btn {{ bookingView == 'active' ? 'primary' : 'outline' }}" href="{{ path('admin_dashboard', {tab: 'active'}) }}">Active requests</a>
+            <a class="admin-btn {{ bookingView == 'trash' ? 'primary' : 'outline' }}" href="{{ path('admin_dashboard', {tab: 'trash'}) }}">Trash ({{ trashedBookings|length }})</a>
+        </nav>
+
+        {% if bookingView == 'active' %}
+            <section class="admin-card" id="bookings">
+                <div class="admin-card-header"><h2>Bookings and Estimate Requests</h2></div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Customer</th><th>Type</th><th>Service / Vehicle</th><th>Schedule</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            {% for booking in bookings %}
+                                <tr>
+                                    <td>{{ booking.customer_name }}<br><small>{{ booking.customer_email }}</small></td>
+                                    <td>{{ booking.form_type|capitalize }}</td>
+                                    <td>{{ booking.service_name }}<br>{{ booking.vehicle }}</td>
+                                    <td>{% if booking.date %}{{ booking.date|date('M d, Y') }} {{ booking.time|date('h:i A') }}{% else %}Estimate{% endif %}</td>
+                                    <td>{{ booking.status }}<br><small>{{ booking.admin_note }}</small></td>
+                                    <td class="admin-booking-actions">
+                                        {% if booking.form_type == 'booking' %}
+                                            <form action="{{ path('admin_action') }}" method="post" class="admin-booking-status-form">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                                <input type="hidden" name="action" value="status">
+                                                <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                                <select name="status"><option>Approved</option><option>Declined</option><option>Completed</option><option>Cancelled</option></select>
+                                                <button class="admin-btn primary" type="submit">Update</button>
+                                            </form>
+                                            <form action="{{ path('admin_action') }}" method="post" class="admin-form admin-booking-reschedule-form">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                                <input type="hidden" name="action" value="reschedule">
+                                                <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                                <select name="availability_id" required>
+                                                    <option value="">Reschedule to...</option>
+                                                    {% for slot in freeSlots %}
+                                                        <option value="{{ slot.id }}">{{ slot.available_date|date('M d, Y') }} {{ slot.available_time|date('h:i A') }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <button class="admin-btn outline" type="submit">Reschedule</button>
+                                            </form>
+                                        {% endif %}
+                                        <form action="{{ path('admin_action') }}" method="post" onsubmit="return confirm('Move this request to Trash? Its time slot will be made available.');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                            <input type="hidden" name="action" value="delete_booking">
+                                            <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                            <button class="admin-btn outline admin-delete-button" type="submit">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="6">No active bookings or estimate requests.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% else %}
+            <section class="admin-card" id="trash">
+                <div class="admin-card-header"><h2>Trash</h2></div>
+                <p class="admin-trash-note">Deleted requests are kept here and can be restored. Scheduled slots are released when a request is moved to Trash.</p>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Customer</th><th>Type</th><th>Service / Vehicle</th><th>Schedule</th><th>Status</th><th>Deleted</th><th>Action</th></tr></thead>
+                        <tbody>
+                            {% for booking in trashedBookings %}
+                                <tr>
+                                    <td>{{ booking.customer_name }}<br><small>{{ booking.customer_email }}</small></td>
+                                    <td>{{ booking.form_type|capitalize }}</td>
+                                    <td>{{ booking.service_name }}<br>{{ booking.vehicle }}</td>
+                                    <td>{% if booking.date %}{{ booking.date|date('M d, Y') }} {{ booking.time|date('h:i A') }}{% else %}Estimate{% endif %}</td>
+                                    <td>{{ booking.status }}</td>
+                                    <td>{{ booking.deleted_at|date('M d, Y h:i A') }}</td>
+                                    <td>
+                                        <form action="{{ path('admin_action') }}" method="post">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                            <input type="hidden" name="action" value="restore_booking">
+                                            <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                            <button class="admin-btn primary" type="submit">Restore</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="7">Trash is empty.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% endif %}
+
+        <section class="admin-card" id="slots">
+            <div class="admin-card-header"><h2>Manage Available Dates &amp; Times</h2></div>
+            <form action="{{ path('admin_action') }}" method="post" class="admin-form">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                <input type="hidden" name="action" value="add_slot">
+                <input type="date" name="available_date" required>
+                <input type="time" name="available_time" required>
+                <button class="admin-btn primary" type="submit">Add Available Slot</button>
+            </form>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        {% for slot in slots %}
+                            <tr>
+                                <td>{{ slot.available_date|date('M d, Y') }}</td>
+                                <td>{{ slot.available_time|date('h:i A') }}</td>
+                                <td>{{ slot.status }}</td>
+                                <td>
+                                    {% if slot.status == 'Available' or slot.status == 'Blocked' %}
+                                        <form action="{{ path('admin_action') }}" method="post">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('admin_action') }}">
+                                            <input type="hidden" name="availability_id" value="{{ slot.id }}">
+                                            <input type="hidden" name="action" value="{{ slot.status == 'Available' ? 'block_slot' : 'unblock_slot' }}">
+                                            <button class="admin-btn outline" type="submit">{{ slot.status == 'Available' ? 'Block' : 'Make Available' }}</button>
+                                        </form>
+                                    {% else %}
+                                        Booked
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="4">No future schedule slots.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="admin-card">
+            <div class="admin-card-header"><h2>Subscribers</h2></div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Email</th><th>Subscribed</th></tr></thead>
+                    <tbody>
+                        {% for subscriber in subscribers %}
+                            <tr><td>{{ subscriber.email }}</td><td>{{ subscriber.created_at|date('M d, Y') }}</td></tr>
+                        {% else %}
+                            <tr><td colspan="2">No subscribers yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
 {% endblock %}

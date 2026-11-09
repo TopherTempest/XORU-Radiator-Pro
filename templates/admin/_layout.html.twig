@@ -1,3 +1,30 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{% block title %}XORU Admin{% endblock %}</title><link rel="stylesheet" href="{{ asset('style.css') }}"><script>if(localStorage.getItem('xoruAdminTheme')==='dark')document.documentElement.classList.add('admin-dark');</script></head>
-<body class="admin-page"><div class="admin-shell"><aside class="admin-sidebar"><div class="admin-logo"><img src="{{ asset('assets/xoru-blue.png') }}" alt="XORU Radiator Pro"></div><div class="admin-profile"><div class="admin-avatar">X</div><div><strong>{{ app.user.displayName }}</strong><span>Administrator</span></div></div><nav class="admin-nav"><a href="{{ path('admin_dashboard') }}">Dashboard</a><a href="{{ path('admin_dashboard') }}#slots">Calendar</a><a href="{{ path('admin_dashboard') }}#bookings">Bookings</a><a href="{{ path('admin_customers') }}">Customers</a><a href="{{ path('admin_reports') }}">Reports</a><a href="{{ path('admin_settings') }}">Settings</a></nav><div class="admin-sidebar-bottom"><a href="{{ path('app_logout') }}">Logout</a></div></aside><main class="admin-main"><header class="admin-topbar"><div class="admin-topbar-title">{% block heading %}Dashboard{% endblock %}</div><div class="admin-account"><strong>Xoru Radiator Pro</strong><small>Administrator</small></div></header><div class="admin-content">{% for message in app.flashes('success') %}<div class="admin-alert">{{ message }}</div>{% endfor %}{% for message in app.flashes('error') %}<div class="admin-login-error">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</div></main></div></body></html>
+{% extends 'base.html.twig' %}
+
+{% block title %}XORU Admin{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('style.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+    <script>if (localStorage.getItem('xoruAdminTheme') === 'dark') document.documentElement.classList.add('admin-dark');</script>
+{% endblock %}
+
+{% block body %}
+    <div class="admin-page">
+        <div class="admin-shell">
+            {% include 'partial/sidebar.html.twig' %}
+            <main class="admin-main">
+                <header class="admin-topbar">
+                    <div class="admin-topbar-title">{% block heading %}Dashboard{% endblock %}</div>
+                    <div class="admin-account"><strong>Xoru Radiator Pro</strong><small>Administrator</small></div>
+                </header>
+                <div class="admin-content">
+                    {% for message in app.flashes('success') %}<div class="admin-alert">{{ message }}</div>{% endfor %}
+                    {% for message in app.flashes('error') %}<div class="admin-login-error">{{ message }}</div>{% endfor %}
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+{% endblock %}

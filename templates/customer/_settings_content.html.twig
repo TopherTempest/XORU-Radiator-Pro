@@ -1,0 +1,11 @@
+<section class="customer-settings-card">
+    <h3>Appearance</h3>
+    <button class="btn outline" type="button" data-customer-theme="light">Light mode</button>
+    <button class="btn outline" type="button" data-customer-theme="dark">Dark mode</button>
+</section>
+<section class="customer-settings-card">
+    <h3>My Account</h3>
+    <p>Name: <strong>{{ customer.name }}</strong></p>
+    <p>Email: <strong>{{ customer.email }}</strong></p>
+    <p>Login Method: <strong>{{ customer.provider|capitalize }}</strong></p>
+</section>
